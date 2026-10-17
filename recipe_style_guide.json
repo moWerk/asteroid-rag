@@ -1,0 +1,189 @@
+{
+  "recipe_style_guide": {
+    "confidence": "wiki",
+    "source_pages": [
+      "https://docs.yoctoproject.org/contributor-guide/recipe-style-guide.html",
+      "https://github.com/priv-kweihmann/oelint-adv"
+    ],
+
+    "variable_ordering": {
+      "canonical_order": [
+        "SUMMARY",
+        "DESCRIPTION",
+        "HOMEPAGE",
+        "BUGTRACKER",
+        "SECTION",
+        "LICENSE",
+        "LIC_FILES_CHKSUM",
+        "DEPENDS",
+        "PROVIDES",
+        "PV",
+        "SRC_URI",
+        "SRCREV",
+        "S",
+        "inherit ...",
+        "PACKAGECONFIG",
+        "build-class-specific vars (EXTRA_OECONF etc.)",
+        "tasks (do_configure etc.)",
+        "PACKAGE_ARCH",
+        "PACKAGES",
+        "FILES",
+        "RDEPENDS",
+        "RRECOMMENDS",
+        "RSUGGESTS",
+        "RPROVIDES",
+        "RCONFLICTS",
+        "BBCLASSEXTEND"
+      ],
+      "note": "DEPENDS must appear before inherit. inherit may set DEPENDS itself — a plain assignment after inherit can silently overwrite it. Use DEPENDS:append after inherit when adding to inherited DEPENDS.",
+      "oelint_rule": "oelint.var.order.DEPENDS — flags DEPENDS placed after inherit"
+    },
+
+    "append_operators": {
+      "preferred": "VAR:append = \" value\"  — modern BitBake syntax, always additive regardless of placement. Applies universally to ALL variables: DEPENDS, FILES, RDEPENDS, SRC_URI, etc.",
+      "legacy": "VAR += \"value\"  — legacy operator, avoid in all new recipes and all variables",
+      "leading_space_rule": "All :append values must start with a leading space: \" foo\" not \"foo\" — otherwise the appended value is joined directly to existing content without a separator, producing e.g. 'barfoo' instead of 'bar foo'",
+      "confirmed_affected_variables": ["DEPENDS", "FILES:${PN}", "RDEPENDS:${PN}", "SRC_URI"],
+      "oelint_rule": "oelint.vars.listappend — flags missing leading space on :append values",
+      "magnefire_confirmed": "MagneFire explicitly reviewed asteroid-touchdown and confirmed += is legacy for both DEPENDS and FILES:${PN}. The rule applies to every variable in a recipe without exception."
+    },
+
+    "required_variables": {
+      "mandatory": ["SUMMARY", "LICENSE", "LIC_FILES_CHKSUM", "HOMEPAGE"],
+      "summary_max_length": "80 characters",
+      "homepage_prefix": "must start with http:// or https://",
+      "license_format": "SPDX identifier — e.g. GPL-3.0-only, MIT, Apache-2.0",
+      "oelint_rules": [
+        "oelint.var.mandatoryvar.SUMMARY",
+        "oelint.var.mandatoryvar.SECTION",
+        "oelint.vars.summary80chars",
+        "oelint.vars.homepageprefix"
+      ]
+    },
+
+    "empty_assignments": {
+      "rule": "Never set a variable to an empty string unless it serves a purpose — e.g. RDEPENDS:${PN} += \"\" is noise and should be removed",
+      "oelint_rule": "oelint.vars.filessetting — flags unnecessary FILES settings. Same principle applies to RDEPENDS and any other variable."
+    },
+
+    "pv_format": {
+      "git_untagged": "PV = \"<last-released-version>+git\" — the + prefix tells bitbake to include SRCPV in the version string",
+      "warning": "PV = \"+git${SRCPV}\" is the historical AsteroidOS community convention but is known broken — see pv_git_srcpv_broken. Do not use it in new recipes.",
+      "pr_variable": "PR should be removed when PV increases. Only needed to force reinstall from a package feed without a version bump."
+    },
+
+    "pv_git_srcpv_broken": {
+      "rule": "Never use PV = \"+git${SRCPV}\" in community recipes. Yocto can misparse the resulting version string as going backwards, causing package managers to treat updates as downgrades. MagneFire confirmed this caused upgrade failures during the 2.1 release cycle.",
+      "fix_option_a": "Set PV to an explicit linear version: PV = \"2.5\". Increment manually on each release.",
+      "fix_option_b": "Rename the recipe file to include the version: asteroid-shopper_2.5.bb and omit PV entirely. Yocto parses the version from the filename. Bumping the version means renaming the file. MagneFire leans toward this as the canonical Yocto pattern but noted it needs verification against core layers.",
+      "reference_commit": "https://github.com/AsteroidOS/meta-asteroid/commit/bd68d7d2c9d4e699ea6fe17909dafff3d1f65841",
+      "reference_docs": "https://docs.yoctoproject.org/dev/dev-manual/packages.html#incrementing-a-package-version",
+      "status": "MagneFire confirmed. Final canonical choice between option_a and option_b pending team decision — do not change unilaterally."
+    },
+
+    "pr_bump_reliability": {
+      "rule": "PR bump only reliably forces a package reinstall from the feed when the PV portion of the version string is stable and linear. If PV contains a git hash, the overall version comparison is unpredictable and the PR suffix may not produce the expected 'newer' result.",
+      "correct_use": "PR bump is correct for recipe-level changes (e.g. fixed do_install path) that do not involve a SRCREV change and where PV is a plain version number.",
+      "incorrect_use": "Bumping PR while PV = \"+git${SRCPV}\" is unreliable — it may not propagate the fix to existing installs via feed update even though manual opkg install works."
+    },
+
+    "autorev_versioning": {
+      "note": "Core AsteroidOS repos use SRCREV = \"${AUTOREV}\", which makes reliable version ordering significantly harder than pinned-SRCREV community recipes. The Yocto-standard solution is a PR server (prserv) that automatically increments PR whenever the recipe checksum changes, ensuring monotonically increasing versions. Whether AsteroidOS infrastructure runs a PR server is unconfirmed. This is a known open problem flagged by MagneFire — do not attempt to solve unilaterally in a recipe PR."
+    },
+
+    "formatting": {
+      "indentation": "4 spaces per level — never tabs",
+      "operator_spacing": "spaces around operator: FOO = \"bar\" not FOO=\"bar\"",
+      "quote_style": "double quotes on right-hand side always",
+      "line_continuation": "long values split with \\ — continuation lines indented to align with opening quote",
+      "trailing_spaces": "no spaces at line end",
+      "no_trailing_comments": "inline comments not allowed — comments on their own line only",
+      "oelint_rules": [
+        "oelint.tabs.notabs",
+        "oelint.spaces.lineend",
+        "oelint.spaces.linebeginning",
+        "oelint.spaces.linecont",
+        "oelint.comments.notrailing"
+      ]
+    },
+
+    "do_install": {
+      "rule": "Use install not cp in do_install tasks",
+      "oelint_rules": [
+        "oelint.task.nocopy — flags cp usage in do_install",
+        "oelint.task.nomkdir — flags mkdir usage in do_install, use install -d instead"
+      ]
+    },
+
+    "src_uri": {
+      "checksum_required": "non-VCS URLs (http/https single file) require checksum — sha256sum preferred",
+      "no_git_tag": "'tag' in SRC_URI options leads to non-reproducible builds — use SRCREV instead",
+      "oelint_rules": [
+        "oelint.vars.srcurichecksum",
+        "oelint.vars.srcurigittag"
+      ]
+    },
+
+    "depends_duplicates": {
+      "rule": "No duplicate entries in DEPENDS or RDEPENDS",
+      "oelint_rule": "oelint.vars.duplicate"
+    },
+
+    "desktop_file_canonical_pattern": {
+      "canonical_source": "asteroid-helloworld (official app template repo), asteroid-app.inc (meta-asteroid shared recipe base), asteroid-settings CMakeLists.txt — all use the same pattern",
+      "pattern": "Source repo contains: appname.desktop.template (launcher desktop entry template — Name= is synthesized at build time from i18n), i18n/appname.desktop.h (qsTr wrapper providing the translatable app launcher name), optional i18n/*.ts files for per-language translations. Root CMakeLists.txt calls build_translations(i18n) and generate_desktop(${CMAKE_SOURCE_DIR} appname). Recipe DEPENDS:append includes asteroid-generate-desktop-native.",
+      "community_apps": "Community apps CAN and SHOULD use this canonical pattern. There is no restriction. The recipe simply needs DEPENDS:append = \" asteroid-generate-desktop-native\". Confirmed: MagneFire clarified 2026-05 during asteroid-toolwatch packaging. The prior claim that community recipe sysroots cannot access this tool was wrong.",
+      "plain_desktop_alternative": "A plain appname.desktop file installed via install(FILES appname.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications) also works and is found in some community apps. It is a valid divergence from canon — not the recommended starting point. When using it: Name= must be set directly in the .desktop file (the template machinery synthesizes it; the plain file does not). No asteroid-generate-desktop-native in DEPENDS. No i18n/ directory needed.",
+      "transition_from_template_to_plain": "When removing the template pipeline: remove generate_desktop() and build_translations(i18n) from CMakeLists together as a unit, remove the entire i18n/ directory including .desktop.h, rename appname.desktop.template to appname.desktop, add Name= directly to the file, remove asteroid-generate-desktop-native from DEPENDS, remove FILES:${PN}:append for /usr/share/translations/ from recipe. All steps must be done together — partial removal leaves orphaned files and misleads future contributors.",
+      "confidence": "confirmed — MagneFire 2026-05, asteroid-toolwatch packaging session"
+    },
+
+    "cmake_app_required_files": {
+      "rule": "All apps using cmake_qt5 or qt6-cmake inherit install a shared library to ${libdir}. This file is NOT automatically included in the package. Every community recipe must include FILES:${PN}:append = \" ${libdir}\" or do_package will fail with installed-vs-shipped QA error.",
+      "preferred_form": "FILES:${PN}:append = \" ${libdir}\"  — glob covers the directory, future-proof against filename changes",
+      "avoid": "FILES:${PN}:append = \" /usr/lib/asteroid-appname.so\"  — fragile, tied to specific filename",
+      "sstate_warning": "Missing this line may go undetected locally due to sstate cache hits. Always test with a clean build or check the package feed build log.",
+      "confirmed": "asteroid-horizon, 2026-05 — MagneFire diagnosis via Matrix"
+    },
+
+    "translations_files_entry": {
+      "rule": "Include FILES:${PN}:append = \" /usr/share/translations/\" in any recipe where the app's CMakeLists.txt calls build_translations(i18n). Omit it when build_translations has been removed.",
+      "dead_code_condition": "build_translations(i18n) is dead code only when the i18n/ directory contains no .desktop.h AND no .ts files, OR when generate_desktop() has also been removed from CMakeLists. The i18n/appname.desktop.h file is NOT dead code while generate_desktop() is still in use — it is the translation extraction source that provides the app launcher name. Remove the CMakeLists calls and the entire i18n/ directory as a unit when transitioning to plain .desktop; do not remove build_translations in isolation.",
+      "confirmed": "asteroid-horizon (no i18n dir — build_translations was dead code, removed 2026-05), asteroid-toolwatch (i18n/ contained only .desktop.h with no .ts — removed as part of full plain-desktop transition 2026-05)"
+    },
+
+    "asteroid_community_current_violations": {
+      "note": "Based on MagneFire review of asteroid-touchdown PR, April 2026. Expect same patterns across all community recipes.",
+      "confirmed_nits": [
+        "FILES:${PN} missing ${libdir} entry — /usr/lib/asteroid-appname.so is NOT automatically shipped. All cmake_qt5 and qt6-cmake apps produce a .so and must declare FILES:${PN}:append = \" ${libdir}\". Omitting it causes do_package QA error 'installed-vs-shipped'. Use ${libdir} glob, not a specific filename.",
+        "sstate cache masks missing FILES entries — local builds hit cached do_package results and pass silently. A clean package feed build always fails. This is why the bug persists unnoticed across many community recipes.",
+        "DEPENDS += used instead of DEPENDS:append (with leading space)",
+        "FILES:${PN} += used instead of FILES:${PN}:append (with leading space)",
+        "Empty RDEPENDS:${PN} += \"\" line present"
+      ],
+      "implication": "All patterns above will be flagged by oelint-adv once CI is enabled. Proactively fix all += occurrences in existing recipes before CI lands."
+    },
+    "oelint_adv_tool": {
+      "install": "pip install oelint-adv",
+      "run": "oelint-adv <recipe>.bb",
+      "ci_integration": "MagneFire is planning GitHub CI integration for meta-asteroid-community — oelint-adv as the linter",
+      "rulefile": "can be configured with a rulefile to suppress project-irrelevant rules",
+      "source": "https://github.com/priv-kweihmann/oelint-adv"
+    },
+    "upstream_status_required": {
+      "summary": "All kernel patch files must contain an 'Upstream-Status:' header in the patch email body (below Subject, before the first diff --git). Missing this header causes a fatal 'Missing Upstream-Status in patch' QA error (patch-status check in patch.bbclass). Valid values: Upstream, Backport, Submitted, Denied, Inappropriate [reason], Pending. For nemo-specific adaptation patches: 'Upstream-Status: Inappropriate [nemo-specific port patch]'. For backports from mainline: 'Upstream-Status: Backport [mainline commit hash or version]'.",
+      "domain": "recipe_style",
+      "confidence": "confirmed"
+    },
+    "hunk_line_count_arithmetic": {
+      "summary": "In unified diff format, the '@@ -orig_start,orig_count +new_start,new_count @@' counts are exact: orig_count = number of context lines + number of removed lines; new_count = number of context lines + number of added lines. An off-by-one in either count causes 'malformed patch at line N' when the patch tool reads past the expected hunk boundary and encounters the next 'diff --git' header. When constructing patches programmatically (e.g. Python), count every ' ' (context), '-' (removed), and '+' (added) line explicitly.",
+      "domain": "recipe_style",
+      "confidence": "confirmed"
+    },
+    "git_diff_format_without_index": {
+      "summary": "Patch files using 'diff --git a/file b/file' headers without the 'index xxxxxxx..xxxxxxx 100644' line are accepted by the patch/quilt toolchain. The index line is optional for plain patch application. This matters when constructing patches programmatically — omitting the index line is fine and simplifies generation.",
+      "domain": "recipe_style",
+      "confidence": "confirmed"
+    }
+  }
+}

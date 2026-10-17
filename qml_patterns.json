@@ -1,0 +1,825 @@
+{
+  "qml_patterns": {
+    "qt6_migration": {
+      "qt6_layer_dropshadow_text_softening": {
+        "description": "Text items inside a layer.enabled: true container using layer.effect: DropShadow are slightly softer than equivalent Canvas or unlayered Text in Qt6. The layer renders to a logical-resolution FBO and the composited texture adds one bilinear sample pass. Text.NativeRendering applies native glyph rasterization but the FBO limits crispness. Tested workaround: layer.textureSize Qt.size(width*2, height*2) supersamples the layer; negligible improvement found in practice on 400px devices. Accepted as a minor tradeoff of the DropShadow architecture.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_dbus_qdbusvariant_coercion": {
+        "description": "In Qt6, Nemo.DBus getProperty() returns a QDBusVariant wrapper instead of auto-coercing to the declared QML property type. Assigning the raw QDBusVariant to a property string throws 'Cannot assign QDBusVariant to QString' and aborts the Component.onCompleted handler before subsequent calls execute. Fix: call .toString() on the result. Also apply to ListTimezones callback array elements if items arrive as QDBusVariant rather than plain strings: m.map(function(tz) { return tz.toString() }). Confirmed in FirstRunConfig.qml and TimezonePage.qml on Qt 6.11.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_signal_parameter_injection_deprecated": {
+        "description": "Qt6 deprecated implicit injection of signal parameters into handler bodies. All signal handlers that use injected parameters must be converted to arrow function syntax with explicit parameter declarations: onSignalName: (param1, param2) => { ... }. Parameter names and ORDER must match the C++ signal definition exactly — wrong order silently breaks logic with no error. Confirmed failures: onGestureStarted/onGestureFinished (compositor.qml, LayerStack.qml), onWindowAdded/onWindowRemoved/onWindowRaised (compositor.qml), onSwipeMoved/onSwipeReleased (PanelsGrid.qml). Wrong parameter order in onSwipeReleased caused broken flick snap physics.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_qml_binding_initialization_order": {
+        "description": "Qt6 evaluates property bindings earlier in the component lifecycle than Qt5, before all sibling items with declared ids are fully instantiated. Items declared later in the file are null when earlier items' bindings first evaluate. Fix: add explicit null guards: comp ? comp.appActive : false. Confirmed in compositor.qml where appLayer.visible, BorderGestureArea.enabled, and acceptsRight all reference the Compositor item (id: comp) which is declared after them.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_qquickpainteditem_fbo_deprecated": {
+        "description": "QQuickPaintedItem::FramebufferObject render target behavior changed in Qt6, causing the QPainter coordinate system to operate at half the expected resolution and producing visibly pixelated output. Fix: remove setRenderTarget(QQuickPaintedItem::FramebufferObject) from the constructor entirely and let it default to the Image render target. Confirmed in Icon class (qml-asteroid) on Qt 6.11.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_wayland_client_root_item_zero_size": {
+        "description": "In Qt6 Wayland client apps, QQuickItem::anchors.fill: parent on the root item resolves to 0x0 at Component.onCompleted because the Wayland xdg_toplevel configure event arrives asynchronously after QML init. Content renders correctly at the physical framebuffer size but all QML width/height properties are 0 until QQuickWindow::widthChanged fires. Fix in Application_p.cpp: override itemChange to catch ItemSceneChange and connect to widthChanged/heightChanged, guarded by w->width() > 0.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_highdpi_scaling_touch_compression": {
+        "description": "Qt6 reads physical display size in mm from hwcomposer HAL and computes devicePixelRatio = physicalDPI / 96. On smartwatch displays this produces DPR ~2.9, making QScreen::geometry() report ~110x110 instead of 320x320. The evdevtouch input plugin scales raw touch coordinates by screen_logical_size / ABS_max, compressing all touch input into the top-left ~34% of the display. Rendering is unaffected since it uses EGL framebuffer dimensions directly. Diagnostic: log Screen.width from compositor Component.onCompleted — 110 confirms the issue. Fix: QT_ENABLE_HIGHDPI_SCALING=0 in the compositor environment.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_double_to_int_strict_coercion": {
+        "description": "Qt6 property system rejects assignment of JavaScript Number (double) to property int without explicit cast. Math.round(), Math.floor(), Math.ceil() all return Number even when the result is a whole number. Qt5 silently coerced these. Qt6 fires 'Unable to assign double to int' on every evaluation and does not update the property. Fix: append | 0 for bitwise integer truncation (fastest), or parseInt(). Confirmed in 003-turbo-list.qml onContentYChanged: currentPos = Math.round(lowerStop + ratio) | 0.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_nan_font_pixelsize_qsgrender_crash": {
+        "description": "NaN propagated into font.pixelSize causes a null pointer dereference (SEGV) in QSGRenderThread in Qt6. Qt5 text rendering tolerated NaN silently. Common source: Math.sqrt() of a negative discriminant in circular geometry calculations. Fix: guard the sqrt call with a discriminant check, and guard font.pixelSize with Math.max(1, ...) to prevent zero. Confirmed in 003-turbo-list.qml bezelOffset calculation.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_connections_null_target_signal_warning": {
+        "description": "Qt6 validates Connections signal handler names at component creation time. If the target property is null or an unresolved identifier at that moment, Qt6 logs a warning about unmatched signal handlers. This is cosmetic when the target resolves correctly later at runtime. Fix for the cosmetic warning: guard the target with a null check: target: grid !== null ? grid : null.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_initial_properties_require_declaration": {
+        "description": "Qt6 requires that any property passed as an initial property via LayerStack.push(component, { depth: n, pop: fn }) must be explicitly declared on the target QML component's root item. If not declared, Qt6 logs 'Setting initial properties failed'. In Qt5 these could be set dynamically without prior declaration. Fix: add property int depth and property var pop to the root item of every page component that is pushed via LayerStack. Confirmed across all 17 pages in asteroid-settings.",
+        "domain": "qt6-migration",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_nemo_keepalive_versionless_import_breaks_displayblanking": {
+        "description": "nemo-keepalive registers DisplayBlanking TWICE: as a singleton at Nemo.KeepAlive 1.1 (qmlRegisterSingletonType) and as an instantiable type at 1.2 (qmlRegisterType). A versionless 'import Nemo.KeepAlive' resolves to the HIGHEST version (1.2) in Qt6, so DisplayBlanking silently stops being a singleton: 'DisplayBlanking.preventBlanking = true' and 'Binding { target: DisplayBlanking }' both write to an inert type wrapper with NO error or warning, and no blanking-pause request ever reaches mce. On-watch consequence: display blanks at the stock 30s mid-use and LPM entry closes the app (compositor withdraws the surface, app quits on window close). Fix: keep 'import Nemo.KeepAlive 1.1' when using the singleton API (asteroid-flashlight is the reference), or migrate to an instantiated 'DisplayBlanking { preventBlanking: ... }' (1.2 API). This is an exception to the blanket 'versionless imports' Qt6 porting rule: here the version selects API semantics, not just revision. Found 2026-07-19 via dodger playtest on skipjack; hardware-confirmed. Affected at discovery: dodger, blaster, beatfork, heliograph, horizon, touchdown, pulsar (all ported with versionless import + singleton usage).",
+        "domain": "qt6_migration",
+        "confidence": "confirmed_on_hardware"
+      },
+      "wallclock_moved_to_org_asteroid_utils": {
+        "description": "WallClock is now provided by qml-asteroid's org.asteroid.utils module (upstream asteroid-settings commit fb9fb4e, Florent). Drop 'import Nemo.Time' and use org.asteroid.utils WallClock; it is a drop-in for the Nemo.Time WallClock (same WallClock { updateFrequency: WallClock.Second } API). Hit this when rebasing a QML page that uses WallClock onto current master: the conflict is just the import line.",
+        "domain": "qt6-migration"
+      }
+    },
+    "watchfaces": {
+      "layer_msaa_unsupported_all_devices": {
+        "description": "AsteroidOS hardware does not support multisample renderbuffers. Any layer { samples: N } request logs 'Layer requested N samples but multisample renderbuffers are not supported', is silently ignored, and produces no antialiasing benefit. The Shape renderer antialiases arc geometry independently via its own RHI pipeline.",
+        "fix": "Remove layer.samples (and the entire nightstandMode layer block) from all watchfaces. Shape antialiases natively. Confirmed on sturgeon Qt 6.11 for all nightstand arc renders in 000-default-digital and 001-words-worte-palabras-mots.",
+        "applies_to": "All stock and community watchfaces with nightstandMode or dockMode layer blocks",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "nightstand_layer_full_removal": {
+        "description": "Remove the entire nightstandMode layer block (enabled, samples, smooth, textureSize) from all watchfaces. Three independent reasons: (1) samples is a no-op that logs a warning on this hardware; (2) textureSize 2x causes visible stutter when nightstand mode activates; (3) layer.enabled routes the arc through an offscreen texture pass that provides no visual benefit since Shape antialiases on its own.",
+        "fix": "Delete the entire layer { } block or all layer.* lines from nightstandMode and any dockMode items. No visual regression expected. Test by screenshotting the nightstand arc before and after.",
+        "applies_to": "All watchfaces with nightstandMode or dockMode Repeater-based battery arcs",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "qt6_text_bounding_box_larger": {
+        "description": "Qt6 allocates more vertical space above and below visible glyphs in a Text item bounding box than Qt5 (larger ascender/descender and line-metric padding). Two observable effects: (1) items anchored to text.bottom sit further from the visible glyph boundary than in Qt5, requiring negative topMargin to compensate; (2) verticalCenter-anchored text appears to have its glyphs floating higher within the larger box (the visual glyph center is above the geometric item center), requiring a smaller absolute verticalCenterOffset to reach the same visual position as Qt5.",
+        "fix": "Tune verticalCenterOffset and topMargin/bottomMargin empirically on-device against a Qt5 vanilla screenshot. No formula exists — values depend on font, size, and weight. See visual_design_guide.json qt6_layout_tuning for confirmed values.",
+        "applies_to": "All watchfaces porting layout from Qt5 to Qt6 that anchor items to text boundaries or use verticalCenter on text",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "canvas_font_weight_tokens_qt6": {
+        "description": "Qt6's Canvas CSS font-string parser interprets numeric weight tokens that Qt5 silently ignored. Tokens below 100 (CSS minimum) such as '57', '30', '25' clamp to minimum weight (Thin) in Qt6. Stock watchfaces used these as a weight prefix in ctx.font strings expecting them to be no-ops — they rendered at Normal weight in Qt5 but render Thin in Qt6, causing visibly thin numeral strokes.",
+        "fix": "Convert Canvas text to QML Text items with explicit font.weight. Start at Font.Normal (400) and tune against the Qt5 vanilla screenshot — Normal is usually correct since the tokens never applied in Qt5.",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "canvas_font_resolution_scope_correction": {
+        "description": "CORRECTION: Canvas ctx.font resolution failures are font-specific, not universal. System fonts (Roboto, Raleway, SourceSansPro, Noto) resolve correctly in Canvas on AsteroidOS Qt5 and Qt6. The confirmed failure case is Space Mono (a custom non-system font). Do not assume all Canvas text renders with a fallback font — the Qt6 font weight parsing issue is a separate and real problem.",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "locale_handler_stored_property": {
+        "description": "Watchfaces with a localeManager Connections block need to store the locale name as a root property to get immediate re-evaluation on locale change. Inline Qt.locale() in a text binding only re-evaluates when other binding dependencies (like wallClock.time) change, delaying the language update by up to one minute tick.",
+        "correct_pattern": "property string localeName: Qt.locale().name\n// Connections { target: localeManager:\nfunction onChangesObserverChanged() { root.localeName = Qt.locale().name }\n// text binding uses root.localeName.substring(0,2) for language selection\n// date binding uses Qt.locale(root.localeName) so it also re-evaluates immediately",
+        "broken_antipattern": "Calling Qt.binding(function() { return generateTime(wallClock.time) }) in the Connections handler replaces the per-language ternary with a function-only call — the locale selection logic is lost. Confirmed broken in 001-words-worte-palabras-mots vanilla.",
+        "applies_to": "Multilingual watchfaces using localeManager Connections for language switching",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "richtext_styledtext_explicit": {
+        "description": "Set textFormat: Text.StyledText explicitly on all Text items that use <b>, <br>, or other basic HTML markup. Without it, Qt6 AutoText may treat <br> as a paragraph boundary rather than an inline line break, adding paragraph spacing that lineHeight cannot compact, resulting in a larger text bounding box. Text.StyledText forces <br> to be a simple line break. Note: setting textFormat alone does not fully fix the Qt6 bounding-box-larger issue — verticalCenterOffset and margin tuning are still required.",
+        "applies_to": "Word-clock watchfaces and any Text items using rich-text markup in QML",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "dropshadow_recreation_from_canvas": {
+        "description": "Canvas shadow properties and DropShadow properties do not map 1:1. Empirical tuning against a Qt5 screenshot is required. Confirmed ratios from 000-default-digital on a 400px device: Canvas shadowBlur = root.height * .0125 (5px) mapped to DropShadow radius = root.height * .0235 (9.4px tuned). Centered shadow (canvas offsets 0,0) keeps horizontalOffset/verticalOffset = 0. For offset shadows (canvas 4px each axis) use root.height * .01. Start samples at 17, reduce to 9 if the difference is invisible — it usually is at small radii.",
+        "applies_to": "Watchfaces converting Canvas text with shadowBlur to QML Text with DropShadow",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "displayAmbient_is_context_property_never_declare": {
+        "description": "displayAmbient is a context property injected by the asteroid-launcher runtime. Never declare a local QML property with the same name — it shadows the launcher's value and freezes permanently at false, breaking ambient mode completely with no runtime error. The correct pattern is to use displayAmbient directly as a bare identifier. The typeof nightstand / ambientMode ternary pattern is wrong and must never be used.",
+        "correct_pattern": "visible: !displayAmbient  // bare identifier, no declaration",
+        "antipattern": "readonly property bool displayAmbient: (typeof nightstand !== 'undefined' ...) — shadows context property, always false",
+        "ambient_transitions": "Use Connections { target: compositor; function onDisplayAmbientEntered() {}; function onDisplayAmbientLeft() {} } for transition repaints. onDisplayAmbientChanged signal does NOT fire on context properties.",
+        "confirmed_failure": "analog-zeitgeber, digital-terminal-haiku, analog-sundial — all had broken ambient due to this declaration",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "wallclock_context_property_never_instantiate": {
+        "description": "wallClock is a launcher-injected context property — never declare a WallClock {} item inside a watchface QML file. The launcher injects wallClock as a pre-existing context property. Declaring it causes the watchface to fail to start silently.",
+        "fix": "Use wallClock directly as a bare identifier — wallClock.time, wallClock.time.getHours(). Never import org.asteroid.utils for WallClock in a watchface.",
+        "applies_to": "All watchfaces",
+        "confidence": "confirmed"
+      },
+      "smooth_hand_timer_pattern": {
+        "description": "All watchface hands that require smooth sub-second animation must use a 16ms Timer. The Timer reads wallClock.time for the authoritative whole-second base and new Date().getMilliseconds() ONLY for the sub-second fraction. Never use new Date() alone — it ignores qmlscene simulated time and causes the jump-back bug where the hand snaps to a different position every second. onTimeChanged in Connections { target: wallClock } must NOT write secAngle — the Timer owns it exclusively.",
+        "correct_pattern": "var t = wallClock.time; var sec = t.getSeconds() + new Date().getMilliseconds() / 1000",
+        "antipattern": "var d = new Date(); root.secAngle = (d.getSeconds() + d.getMilliseconds()/1000) / 60 * 360 — ignores wallClock, jumps on qmlscene time change",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "timer_exclusive_secangle_ownership": {
+        "description": "The 16ms smooth-second Timer must be the sole writer of secAngle. When both the 16ms Timer and onTimeChanged write to the same angle property they fight at the whole-second boundary — onTimeChanged snaps secAngle to the integer-second position while the Timer was already ahead by the milliseconds fraction, causing a visible jump-back glitch every second. onTimeChanged updates only hrAngle and minAngle. Component.onCompleted may set secAngle once for initial position.",
+        "applies_to": "All watchfaces with smooth second hand animation via 16ms Timer",
+        "confidence": "confirmed"
+      },
+      "canvas_to_qml_items_watchfaces": {
+        "description": "Canvas use in watchfaces must be justified. Every static or rotating geometric shape — hands, centre pins, rings, index marks, dots — must be a QML Rectangle in a zero-size pivot Item with rotation property. Canvas is only justified for: (1) large numbers of individually computed strokes (e.g. iron filings field, tick ring with per-tick glow falloff), (2) shapes that cannot be expressed as rounded Rectangles. The hollow hand technique uses color: 'transparent' with border.color and border.width on a Rectangle — the wallpaper shows through the transparent fill while the outline remains visible. Canvas font rendering is unreliable on AsteroidOS — Text items always work.",
+        "hollow_hand_pattern": "Rectangle { color: 'transparent'; border.color: root.white; border.width: root.handStroke }",
+        "domain": "watchfaces",
+        "confidence": "confirmed-on-device"
+      },
+      "canvas_font_resolution_failure": {
+        "description": "Canvas ctx.font cannot resolve system-installed font families on AsteroidOS — use Text items instead. Setting ctx.font = '24px Space Mono' inside Canvas onPaint produces 'Context2D: The font families specified are invalid'. The Canvas 2D context uses a separate font resolution path that does not see fonts in /usr/share/fonts/. QML Text items resolve the same fonts correctly via Qt's QFont system.",
+        "fix": "Never draw text in Canvas. Replace all Canvas text rendering with QML Text items positioned using x/y or anchors. For curved text on an arc, use the repeater_arc_text_pattern.",
+        "applies_to": "All watchfaces and apps using Canvas text rendering",
+        "confidence": "confirmed"
+      },
+      "tunable_property_block_watchfaces": {
+        "description": "All watchface geometry values used more than once or likely to need hardware tuning must be declared as named readonly properties at the top of the root Item, grouped under a comment. Never scatter magic number fractions through Canvas onPaint or delegate bodies. Property names must be descriptive — single-letter names (R, lw, w) are banned.",
+        "correct_names": "dialRadius, hourHandWidth, hourHandStroke, minuteHandLength, tickLineWidth, glowDepth, balanceRingRadius",
+        "banned_names": "R, lw, w, tail, dotR, ringR — found and removed from analog-lucida",
+        "grouping_comment": "// --- Hand geometry — tune after hardware testing ---",
+        "domain": "watchfaces",
+        "confidence": "confirmed"
+      },
+      "repeater_arc_text_pattern": {
+        "description": "Curved text along an arc in QML must use a Repeater of individual single-character Text delegates, each positioned and rotated mathematically. Each delegate computes charAngle from arcStartAngle + index * arcCharStep. rotation = charAngle * 180/PI + 90 keeps each character tangent to the arc. arcCharStep = (fontSize * advanceRatio) / arcRadius * (180/PI). For Space Mono the advance ratio is ~0.62 (natural) to ~0.82 (spaced). letterSpacing has no effect on single-character Text items — use arcCharStep to control spacing instead. arcStartAngle can be bound to a hand angle property to make the arc rotate with the hand at zero wiring cost.",
+        "advance_ratio_note": "ctx.measureText() is unreliable in Qt Canvas; use fontSize * constant instead",
+        "applies_to": "Watchfaces needing curved text labels, orbiting date arcs, circular scales with text",
+        "confidence": "confirmed-on-device"
+      },
+      "zero_size_pivot_item_rotation": {
+        "description": "Use a zero-size Item anchored at center as a rotation pivot for geometric hand elements. Declare Item { anchors.centerIn: parent; width: 0; height: 0; rotation: root.hrAngle } as pivot. Child Rectangles use plain x/y offsets from pivot origin and rotate automatically with the parent. No Canvas, no trig. Hollow hand: color: transparent; border.color: fg; border.width: handStroke.",
+        "applies_to": "New analog watchfaces — replaces Canvas polygon hands entirely",
+        "confidence": "confirmed"
+      },
+      "glow_formula_base_plus_range": {
+        "description": "Express glow properties as base + (max - base) * factor for seamless falloff into regular tick values. When glow = 0 the value equals the regular tick exactly — no discontinuity at the boundary. Apply to line width, depth, and opacity simultaneously for unified falloff. Example: lw = width * (tickLineWidth + (glowLineWidth - tickLineWidth) * glow).",
+        "applies_to": "Canvas tick rings with animated glow, comet, or highlight effects",
+        "confidence": "confirmed"
+      },
+      "shadereffect_aod_layer_disable": {
+        "description": "Stencil watchfaces using ShaderEffect to cut shapes from the wallpaper must set layer.enabled: !displayAmbient on the mask Rectangle. In AoD the shader runs against an absent wallpaper producing black or glitched output. With layer disabled, Text items render directly on the dark AoD background.",
+        "applies_to": "Watchfaces using ShaderEffect for wallpaper-stencil or knockout text effects",
+        "confidence": "confirmed"
+      },
+      "sensorlogd_availability_guard": {
+        "description": "StepsDataLoader or HRM data may not be available immediately on watchface load. Declare property bool stepsAvailable: false at root. Set true in StepsDataLoader.onDataChanged. Bind opacity of dependent items to stepsAvailable ? 1.0 : 0.5.",
+        "applies_to": "Watchfaces consuming sensorlogd data (steps, HRM)",
+        "confidence": "confirmed"
+      },
+      "font_display_property_for_iteration": {
+        "description": "Use a root-level readonly property string displayFont for rapid font testing across all Text items. Declare readonly property string displayFont: 'FontName' at root. All Text items reference root.displayFont in font.family. Change one line to switch all simultaneously. Remove after finalising.",
+        "applies_to": "Any watchface during font selection iteration",
+        "confidence": "confirmed"
+      },
+      "richtext_inline_color_partial_highlight": {
+        "description": "Use Text.RichText with inline font color tags to highlight part of a text string. Set textFormat: Text.RichText; wrapMode: Text.WordWrap. Use base color for dim text. Wrap bright portions with a helper: function bright(s) { return '<font color=' + root.fg + '>' + s + '</font>' }. root.fg inside the function is a binding dependency — ambient color transitions re-evaluate automatically.",
+        "applies_to": "Word-clock watchfaces, spoken-time displays, any flowing text needing mixed styling",
+        "confidence": "confirmed"
+      },
+      "locale_dependent_layout_conditional": {
+        "description": "Use Qt.locale().name ternary for per-language layout adjustments when different languages produce significantly different string lengths. Bind layout properties conditionally: width: Qt.locale().name.substring(0, 2) === 'fr' ? root.width * 0.82 : root.width * 0.72. For more than two languages, use a lookup object.",
+        "applies_to": "Multilingual watchfaces where different languages produce significantly different string lengths",
+        "confidence": "confirmed"
+      },
+      "timer_wallclock_hybrid_for_testability": {
+        "description": "Combine wallClock.time for integer seconds and new Date() for milliseconds in smooth-animation Timers. wallClock.time freezes correctly in the qmlscene simulator; new Date().getMilliseconds() provides sub-second precision. Example: root.minuteTapePos = (wallClock.time.getSeconds() * 1000 + new Date().getMilliseconds()) / 60000.",
+        "applies_to": "Watchfaces with smooth-animation Timers where simulator testability matters",
+        "confidence": "confirmed"
+      },
+      "phase_property_animation_crossfade": {
+        "description": "Use a root phase property driven by NumberAnimation for cross-fade transitions between Repeater delegates. Declare property real transitionPhase: 0 on root. Standalone NumberAnimation { id: phaseAnim; target: root; property: 'transitionPhase'; from: 1; to: 0; duration: 400 }. In Connections, when integer value changes: root.transitionPhase = 1; phaseAnim.restart(). Behavior on opacity inside a Repeater delegate never fires when the triggering condition is slot-based — this pattern bypasses that limitation.",
+        "applies_to": "Repeater-based tape scrolls, drum pickers, slot displays needing smooth boundary transitions",
+        "confidence": "confirmed"
+      },
+      "font_pixelsize_not_scale_for_alignment": {
+        "description": "Drive font.pixelSize instead of Item.scale when text alignment must be preserved. scale transforms from Item.Center by default — a right-aligned Text scaled up grows both left and right, shifting the inner text edge. Fix: remove scale and transformOrigin. Compute per-delegate naturalSize and bind font.pixelSize to it. Fix delegate height to maximum font size so y positioning stays stable.",
+        "applies_to": "Watchfaces using scale to vary text size across Repeater delegates where edge alignment matters",
+        "confidence": "confirmed"
+      },
+      "live_font_registration_write_race": {
+        "description": "A watchface bundling a custom font (the store installs it to ~/.fonts) is invisible to the running launcher because QFontDatabase is populated from fontconfig only at startup. Fix: WatchfaceReloader watches ~/.fonts and calls QFontDatabase::addApplicationFont(path) on each new font (live, no fc-cache, no restart), then clearComponentCache + emit reloadNeeded so the reloaded face resolves the family. Fonts present at startup are only recorded (fontconfig loaded them). WRITE-RACE, real and confirmed on-device (launcher PR #288): QFileSystemWatcher fires on file-CREATE before the download write flushes, so addApplicationFont reads a truncated file and returns -1; the old code inserted the path into the seen set BEFORE calling addApplicationFont and ignored the result, so a failed font was marked done and never retried. Correct fix: mark a font registered ONLY when addApplicationFont(path) != -1, and add a bounded single-shot settle QTimer (~800ms) started on every dir change that re-scans and re-arms while any on-disk font is still unregistered (cap ~6 tries), so a font that finished writing after the first pass loads. A permanently-rejected font (an old Macintosh-platform TTF Qt6 refuses on ARM) just exhausts the retries. addApplicationFont registers into the launcher process only, which is correct: the launcher is the sole watchface renderer.",
+        "domain": "watchfaces",
+        "confirmed": "belugaxl journal: WFR font X.ttf -> id=-1 (first pass, truncated) then id=0 (settle re-scan)",
+        "test_gotchas": "fontconfig DOES scan ~/.fonts, but as the running user; fc-list over adb runs as root so ~ = /root/.fonts and shows 0 (use su ceres -c 'HOME=/home/ceres fc-list'). Launcher qWarnings are in the FULL system journal, not journalctl --user (which over adb as root shows root's empty user journal)."
+      },
+      "store_settings_page_and_structure": {
+        "description": "On-device watchface store settings feature (settings PR #145): a watchface exposes 'property Component settingsPage'; the store surfaces it on a long press so a face's own options are reachable. Config is dconf-backed (ConfigurationValue) for now. STRUCTURE RULE for a multi-design face: only the lowercase <name>.qml frontend sits directly in the watchfaces folder; its base + variant files go in a <name>/ subfolder. The store enumerates faces by top-level *.qml only (non-recursive) unioned with the online catalog, sorted alphabetically, so components never list as bogus faces and a bare dev-pushed qml still shows live (a QFileSystemWatcher on the folder rebuilds the list). arc is the reference impl (arc.qml frontend + arc/ subfolder + a settingsPage cycling 8 designs on tap, PR #260). Consolidate the same way: analog-nihil (dark/light, two dirs) and sporty-round (v1/v2). Hidden-gesture faces worth refactoring to settingsPage: colour toggle (analog-classy-roman, analog-red-handed, analog-silly-walks, pulsedot); show/hide logo (analog-commander, digital-thoreau-simplify, resistance-is-futile); 12/24h (analog-neon-diver, analog-weather-glow); sensor toggles (analog-weather-glow, digital-weather-hrm-steps).",
+        "domain": "watchfaces"
+      },
+      "store_preview_liveload_and_perf": {
+        "description": "Store/settings watchface-list perf: the per-tile delegate live-loads the FULL watchface QML via a Loader (previewQml, active only when there is no cached preview PNG or the face is active) and builds a per-tile MultiEffect + ShaderEffectSource rounded-corner mask. Live-loading whole watchface scenes for cache-less tiles is 100s of ms each and dominates a ~5s page-show. Consequences: (1) always-PNG previews (never live-load) is the real perf fix, paired with building the stock list first and appending community rows after the page paints; (2) a face's settingsPage is UNREACHABLE on long-press once it has a cached PNG, because previewQml (whose .item.settingsPage the long-press reads) never loads. Fix (2) by loading previewQml for installed user tiles or detecting settingsPage without rendering the scene. Preview-generation plan (separate PR): grabToImage the face at the device previewSize during install + a first-run pass for stock faces, so multi-size preview PNGs stop shipping (Kido tech debt); keep one browse PNG per face in the repo for not-yet-downloaded online browsing.",
+        "domain": "watchfaces"
+      }
+    },
+    "app_architecture": {
+      "app_launch_from_qml": {
+        "description": "Apps in AsteroidOS are launched via appLauncherHelper.cpp which is exposed to QML as appLauncher context property. In launcher QML files, model.object.launchApplication() calls the C++ backend. In non-launcher contexts (QuickPanel, custom apps), use the same appLauncher instance: appLauncher.launchApplication(desktopFileId). Qt.openUrlExternally() does not work for binary paths or .desktop file paths on AsteroidOS.",
+        "antipattern": "Qt.openUrlExternally('file:///usr/bin/asteroid-settings') — silently fails. Qt.openUrlExternally('/usr/share/applications/asteroid-settings.desktop') — not interpreted as a launch request.",
+        "domain": "platform",
+        "confidence": "confirmed"
+      },
+      "loading_overlay_implementation_rules": {
+        "description": "LoadingOverlay must be an always-loaded component in qml-asteroid (no Loader — instant show required). Placed as child of desktop root Item in MainScreen.qml with anchors.fill: parent and z: 100. State must be driven by functions/signals only — never declarative bindings. No ShaderEffect — too GPU-heavy on Mali-400/GC7000/Adreno 3xx. An embedded MouseArea anchors.fill: parent swallows all input events to prevent multi-launch while loading. Show must be visible within 200ms of user tap — use instant visible: true plus 100ms fade animation.",
+        "antipattern": "Loader-based overlay — adds instantiation latency defeating the purpose. Binding visible to a state property — causes binding loops in Qt 5.15.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed"
+      },
+      "svg_qt515_path_quirks": {
+        "description": "Qt 5.15 SVG renderer has two known failure modes for path elements: (1) Conflicting fill presentation attribute and style property — if a path has fill='#000000' as an attribute AND style='fill:#ffffff' the style override is not reliably applied. Fix: remove the fill attribute entirely, use only style='fill:...'. (2) Implied path command repetition — omitting the command letter before subsequent coordinate pairs is frequently misparsed. Fix: make every command letter explicit.",
+        "antipattern": "fill='#000000' style='fill:#ffffff' on same element — Qt 5.15 may silently ignore the style override and render black.",
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "animation_jit_warmup": {
+        "description": "The first collision/event immediately after app startup is significantly more laggy than subsequent ones. Root cause: Qt QML JIT compiler has not yet compiled animation code paths. Workaround: preload and immediately run/stop all heavy animations at startup to force JIT compilation before first user interaction. Confirmed in asteroid-dodger: pre-running flash animations and particle systems in Component.onCompleted eliminated first-collision lag.",
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "accelerometer_during_haptic_interference": {
+        "description": "Haptic feedback (NonGraphicalFeedback vibration) causes measurable accelerometer noise on AsteroidOS watch hardware during and immediately after a vibration event. Fix: apply a low-pass smoothing filter (factor 0.5 confirmed working) to the accelerometer X/Y input in the game timer.",
+        "domain": "hardware",
+        "confidence": "confirmed-on-device"
+      },
+      "layerstack_page_sizing": {
+        "pattern": "All pages pushed via LayerStack must use explicit width: root.width / height: root.height. Never anchors.fill: parent on a LayerStack page root.",
+        "root_cause": "LayerStack does not propagate its size to pushed pages via the anchor engine at construction time. The binding resolves to 0x0 and never re-evaluates.",
+        "antipattern": "Item { id: myPage; anchors.fill: parent } — width and height stay 0",
+        "correct_pattern": "Item { id: myPage; width: root.width; height: root.height }",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "listview_pageheader_overlay_pattern": {
+        "pattern": "ListView fills page with anchors.fill: parent. PageHeader is declared last in the page for natural paint-order overlay. A header: Item { width: listView.width; height: pageHeaderId.height } spacer pushes the first delegate below the header on initial load.",
+        "antipattern": "anchors.top: pageHeaderId.bottom on ListView — creates a hard scissor clip at the header bottom edge.",
+        "scroll_reset": "Call positionViewAtBeginning() not contentY = 0 when resetting scroll after a model reload.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "swipe_proxy_anchored_item_antipattern": {
+        "pattern": "For swipe-to-delete gesture on a ListView delegate, store offset as property real slideX on the delegate root. Apply via transform: Translate { x: slideX }.",
+        "antipattern": "Item { id: slideProxy; anchors.fill: parent; visible: false } — Qt anchor engine silently ignores all imperative x = assignments on anchored items. The item never moves.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "panelsgrid_eager_loading": {
+        "observation": "PanelsGrid instantiates all panels eagerly via addPanel() calls in Component.onCompleted — not lazily on first user swipe. Any D-Bus proxy, hardware status object, or resource-acquiring component declared at the root of a panel QML file is alive from launcher boot.",
+        "implication": "Scope objects to the smallest Component that needs them.",
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "pageheader_z_layer": {
+        "pattern": "PageHeader is a sibling of ListView at the Application root level, not inside the delegate. It sits above all delegate content in z-space. MouseAreas inside delegates cannot receive touches in the PageHeader zone even at z:100.",
+        "fix": "enabled: false on PageHeader stops touch consumption while keeping opacity fade animation.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "launcher_vertical_scroll_navigation": {
+        "pattern": "For vertical scrolling launchers, prevent accidental return to homescreen during scroll by binding forbidTop to atYBeginning state. Add onAtYBeginningChanged handler to update grid navigation permissions when launcher position changes.",
+        "critical_bindings": [
+          "forbidTop = Qt.binding(function() { return !atYBeginning })",
+          "toTopAllowed = Qt.binding(function() { return !atYBeginning })",
+          "toBottomAllowed = Qt.binding(function() { return !atYEnd })"
+        ],
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "pop_before_model_mutations": {
+        "issue": "Calling buildFlatModel() or any function that calls flatModel.clear() before layerStack.pop() resets ListView contentY synchronously. Always call pop() first, then perform model mutations.",
+        "antipattern": "buildFlatModel(); pop() — contentY lost before transition plays",
+        "correct_pattern": "pop(); buildFlatModel() — transition plays while model is rebuilt behind it",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "app_root": "Application { id: app } — 'root' is reserved in delegate scope, use 'app'",
+      "page_active_pattern": "pageActive: pageView.currentIndex === N drives all animations and timers on a page",
+      "primitives_only_interface": "pass only int/bool/string/real/var between components — no object references, use signals for write-back",
+      "state_objects": "QtObject siblings to ListView for app-level state accessible outside delegate scope. ListView delegates are created and destroyed as pages scroll — any property declared on a delegate Item resets when the delegate is recycled.",
+      "delegate_scope_warning": "ids defined inside ListView delegate are not accessible from ListView siblings or from root-scope functions — calling a delegate id from a root function throws ReferenceError at runtime with no compile-time warning. Pattern: declare signal beat() on root, call root.beat() from the root function, and subscribe inside each delegate via Connections.",
+      "single_component_completed": "Only one Component.onCompleted allowed per QML component in Qt 5.15",
+      "component_extraction_decision": "Extract to separate file only when the interface is genuinely tight (8 or fewer properties, 2 or fewer signals). 14+ forwarded properties that duplicate tuning constants create a maintenance trap.",
+      "signal_handler_scope": "In a component instance block, unqualified property names in signal handlers resolve to the component's own scope first, not the parent Application scope. Always qualify with app. when writing back to parent scope.",
+      "conditional_anchor_antipattern": "Never switch anchors between undefined and real targets at runtime — Qt 5.15 binding engine does not cleanly release them. Use two separate Items with visible: condition switching instead.",
+      "imperative_anchor_vs_state_conflict": {
+        "issue": "Setting anchors imperatively in Component.onCompleted conflicts with declarative State-based AnchorChanges — imperative assignments override state transitions.",
+        "pattern": "Let States handle all anchor positioning via AnchorChanges/PropertyChanges. In Component.onCompleted, only call methods like positionViewAtBeginning(), never set anchors.top/bottom/margins directly.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed"
+      },
+      "listview_scroll_identity_anchor": {
+        "pattern": "Before calling flatModel.clear() + rebuild, capture the name (or sourceIndex) of the relevant item. After rebuild, find it in the new model and call positionViewAtIndex(i, ListView.Contain). Never save/restore contentY across a model rebuild.",
+        "antipattern": "flatModel.clear() resets ListView contentY to 0 synchronously. Attempting to restore contentY via Qt.callLater against a partially-computed contentHeight produces invalid scroll states.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "component_instance_id_scope": {
+        "issue": "An id declared inside a Component block is NOT accessible from the enclosing Item's property bindings or sibling Items. Results in ReferenceError at runtime with no compile-time warning.",
+        "fix_for_read": "Expose a mediating property on the shared ancestor and have the Component child update it imperatively.",
+        "fix_for_write": "Use a signal on the shared ancestor. Component children subscribe via Connections.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "function_call_binding_stale": {
+        "issue": "A QML binding containing a function call only re-evaluates when its declared dependency properties change. If the function's internal data changes without affecting the binding's tracked properties, the binding stalls silently.",
+        "fix": "Expose an explicit property updated imperatively from a Connections block. Bind to the explicit property, not the function call.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "vertical_paging_flickable": {
+        "pattern": "For vertical multi-page layouts, use Flickable with contentHeight: N * parent.height, containing a Column of full-height Item children. Track current page via onContentYChanged: currentPage = (contentY < height / 2) ? 0 : 1.",
+        "antipattern": "SwipeView — does not exist on AsteroidOS Qt 5.15 stack.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "mediaplayer_m4a_limitation": {
+        "issue": "QtMultimedia MediaPlayer plays .mp3 files but does NOT play .m4a files on AsteroidOS. Clicking an .m4a file produces no playback and no error in logs — silent failure.",
+        "cause": "Missing AAC codec in the QtMultimedia GStreamer backend on AsteroidOS images.",
+        "fix": "For .m4a playback, route through MPD (which has ffmpeg/libavcodec support) rather than QtMultimedia MediaPlayer.",
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "app_background_persistence_pattern": {
+        "description": "QML apps on AsteroidOS can continue running Timers, SoundEffect playback, and NonGraphicalFeedback vibration when minimized. Detect minimize via Qt.application.onStateChanged. True daemon-style persistence requires a systemd user service + D-Bus trigger.",
+        "domain": "platform",
+        "confidence": "inferred"
+      },
+      "signal_handler_shadowing_on_extracted_component_instances": {
+        "description": "When a signal handler is attached to a child component INSTANCE and the component declares properties with the same names as root state (common after extracting a page from a monolith: the page mirrors root state via same-named bound properties), unqualified writes inside the handler resolve to the INSTANCE's properties, not root's. Double damage: root state never changes (logic silently dead) AND the write destroys the instance property's binding to root. No warning is emitted. Symptom class: 'UI shows the state but nothing driven by root reacts' (dodger: calibration screen showed but root's countdown timer never started). Rule: inside any handler on a component instance, qualify every write to root state with the root id. Found 2026-07-19 during dodger OOP refactor; hardware-confirmed.",
+        "domain": "app_architecture",
+        "confidence": "confirmed_on_hardware"
+      },
+      "store_model_module_probe_needs_qml_engine": {
+        "description": "A QAbstractListModel that probes QML module availability (QQmlComponent(qmlEngine(this)); setData('import Foo.Bar\\nimport QtQml\\nQtObject{}'); status != Error) must NOT do so from its C++ constructor: qmlEngine(this) is null there (the object is not yet attached to an engine), the probe silently reports the module PRESENT, and caching that fail-open answer poisons every later check. Confirmed in the watchface store import-guard (settings #145, 2026-08-05): the model probes in its constructor via loadCachedCatalog(), so the guard never greyed anything. Fix: probe lazily in data() (the view reads a role only after the engine exists), cache the result on the entry, and in the availability helper cache ONLY a result produced by a non-null engine. A re-probe otherwise never happens (a 304 catalog fetch does not rebuild), so a construction-time answer sticks forever.",
+        "domain": "app-architecture",
+        "confidence": "confirmed-on-device"
+      },
+      "new_qml_module_invisible_until_session_restart": {
+        "description": "A running QML engine resolves its import paths once, at creation; a QML module (qmldir + plugin .so) installed to disk AFTER the process started is invisible to it, so a watchface importing it renders BLANK until the process restarts. Distinct from bundled FONTS, which the launcher registers live (addApplicationFont). Confirmed on beluga 2026-08-05: after installing asteroid-sensorlogd the store (fresh settings engine via booster restart) un-greyed the step faces, but the homescreen launcher (booted long before, low PID) still logged 'module org.asteroid.sensorlogd is not installed' and rendered blank until systemctl restart user@1000. Rule: installing a package that provides a QML module needs a session/launcher restart for already-running consumers to see it. The store guard blocks the up-front case (module absent at install time); the later-arrival case is a restart, not live.",
+        "domain": "app-architecture",
+        "confidence": "confirmed-on-device"
+      },
+      "store_list_offline_hides_uninstalled": {
+        "description": "A catalog model whose online state comes from an async reachability probe (HEAD on page open) must default offline-safe at construction AND rebuild the visible list whenever connectivity flips, because online is not known synchronously. Offline, hide un-installed catalog entries entirely: they cannot be downloaded and tapping one fires the install path that moves the wallpaper peek without activating, stranding the user. Confirmed settings #145 (2026-08-05): gate the row on installed || m_online in rebuildFrom, and call rebuildFrom from setOnline on change (a 304 fetch does not rebuild, so setOnline is the only reliable re-trigger). The store probes on open (Component.onCompleted: storeModel.probe()).",
+        "domain": "app-architecture",
+        "confidence": "confirmed-on-device"
+      },
+      "folder_watcher_confirm_a_change_twice": "A QFileSystemWatcher rebuild driven by comparing a directory's contents against the model resets the list under the user's fingers, because activation and install both rewrite files in that folder and a single read can land in the window where a face is briefly absent. Debouncing alone is not enough: the read is stable, just wrong. Require the SAME changed set on two consecutive reads before rebuilding (store the pending set, re-arm the debounce, rebuild only when the confirmation pass agrees), and suppress the check entirely while an install transaction is in flight, since during an install the disk legitimately disagrees with the rows until the transaction updates them. Confirmed on-device (settings #145, 2026-08-07) after users reported the list jumping to the top mid-tap."
+    },
+    "dimensions": {
+      "dims_l_valid_for": "fonts, margins, padding, stroke widths — screen-relative sizing",
+      "dims_l_invalid_for": "square or circular components — Dims.l uses Screen.desktopAvailableWidth/Height evaluated at startup, not parent layout dimensions. Does not protect against squishing on irregular screens.",
+      "square_component_pattern": "Math.min(parent.width, parent.height) for squares. For root Item: height: parent.width > parent.height ? parent.height : parent.width; width: height",
+      "world_space_sizing": "For game objects that must scale with zoom: size as worldUnits * zoomScale, not Dims.l"
+    },
+    "display_blanking": {
+      "design_rule": "See visual_design_guide.json display_blanking for the UX rule governing when blanking prevention is permitted. This section covers implementation only.",
+      "pattern": "Derive a keepAwake bool property. onKeepAwakeChanged: DisplayBlanking.preventBlanking = keepAwake. Also set in Component.onCompleted. Only include states where blanking should actually be suppressed — omit selectingLevel and gameOver so display can blank on menus.",
+      "always_on_pattern": "For utility apps (flashlight, spirit level): Component.onCompleted: DisplayBlanking.preventBlanking = true. No condition needed.",
+      "declarative_binding_works_for_simple_conditions": "Binding { target: DisplayBlanking; property: 'preventBlanking'; value: !gameOver } works correctly for simple boolean game state. The imperative-only restriction applies to feature-based patterns using multiple signals driving the same property.",
+      "gotcha": "Cannot be set as declarative Binding block in general — must be imperative in signal handlers for multi-condition cases"
+    },
+    "paint_order": {
+      "rule": "Declaration order only — never use z: to fix paint order. Exception: binding z to an animation's running state is legitimate when an element must conditionally float above siblings only while active.",
+      "highlightbar": "HighlightBar must be declared last to sit above all siblings including Loader content",
+      "world_layer_elements": "Game world objects (rocks, pads, UFO, ship) must all be declared before HUD and overlay elements."
+    },
+    "performance": {
+      "icon_is_qquickpainteditem": "org.asteroid.controls Icon is a C++ QQuickPaintedItem: it CPU-rasterizes its SVG (QSvgRenderer+QPainter) into a per-icon QPixmap texture. Each icon is therefore its own scene-graph texture and cannot batch with siblings, inflating draw-call count in icon-heavy lists. It is not re-rasterized during scroll (geometryChange early-returns on equal size), so the cost is draw-call/state overhead, not per-frame raster.",
+      "clip_true_on_childless_text_is_noop": "clip: true on a childless Text/Label (e.g. the shared Label, which sets elide + clip) does NOT break scene-graph batching: the renderer tags those nodes [noclip][merged] because there are no children to clip. Do not blame Label's clip for batching cost; the real text cost is glyph-cache generation on Adreno (see glyph_cache in platform_and_build).",
+      "text_glyph_cache_cpu_cost": "On Adreno/Mali (broken FBO readback), every newly-appearing glyph costs a CPU rasterization + texture upload, so text amount and text-size CHANGES dominate UI cost. Avoid animating font.pixelSize (each size can churn the cache); animate a scale transform on a base-size distance-field Text instead, and keep display text within the distance-field range so it does not fall back to the native CPU path.",
+      "ui_sounds_via_ngf_not_soundeffect": "Play one-shot UI sounds via NonGraphicalFeedback (Nemo.Ngf, event name resolved by ngfd on the SYSTEM d-bus, not session) backed by a meta-asteroid ngfd events.d entry with sound.filename, rather than QtMultimedia SoundEffect. SoundEffect on Qt6 chops the sample and holds a persistent pulse stream (battery drain); the ngfd GStreamer sink plays gapless and releases the stream. NonGraphicalFeedback also does haptics/LED in the same event.",
+      "expensive_operations": [
+        "scale animation on any Item with children — forces transform recalculation on every child every frame",
+        "semi-transparent overlapping items — compositor must blend each frame",
+        "createObject/destroy in tight loops — QML GC pressure",
+        "infinite Animation loops running on inactive pages",
+        "DropShadow layer on a static Image that never changes — forces permanent 60fps compositor layer",
+        "layer.enabled: true + clip: true on a solid fill-parent Rectangle — clip is a visual no-op, layer forces compositor overhead",
+        "OpacityMask forces compositor layer every frame — use only when rounded clipping is genuinely required"
+      ],
+      "recommended_patterns": [
+        "object pools via Repeater for frequently spawned items",
+        "paused: !pageActive on all infinite animations",
+        "opacity 1.0 solid items where possible",
+        "cacheBuffer: pageView.width * 10 prevents delegate destroy/recreate which resets property defaults and breaks relay bindings",
+        "static Timer declared at root level — never create via Qt.createQmlObject in tight loops",
+        "wrap fps/debug calculations in if (debugMode)",
+        "white overlay Rectangle opacity toggle for press highlight — one alpha blend on a solid color, cheapest compositor operation available"
+      ],
+      "repeater_gotchas": [
+        "delegate anchors.centerIn resolves to delegate container not page root",
+        "z: on Repeater does not propagate to delegates",
+        "position via x/y math on zero-size parent Item for ring layouts"
+      ],
+      "label_update_decoupling": "Decouple live sensor values from label text using a Timer (250ms interval) that copies live properties into display properties. Dot/visual position uses live values; text labels use timer-snapped values.",
+      "game_loop_performance": "16ms Timer game loops confirmed working on all current AsteroidOS devices including catfish.",
+      "overscroll_event_guard": "onVerticalOvershootChanged fires every animation frame during the bounce — not once per gesture. Always gate with a boolean property reset on verticalOvershoot === 0, and defer the heavy work via a short Timer (400ms) so it fires after the bounce has settled.",
+      "property_change_handler_defer": "Heavy synchronous operations called directly inside a property change handler block the animation frame they execute on. Defer with Qt.callLater or a Timer so the current frame completes before the work runs.",
+      "listview_delegate_loader_optimization": "For ListView delegates containing complex items (config switches, cyclers, battery displays with animations), use Loader with active binding to defer creation of expensive components. Define Component templates outside the delegate and switch via sourceComponent. Significantly reduces initial ListView creation cost and memory footprint.",
+      "spinner_debounce_pattern": "CircularSpinner/SpinBox value changes during active spinning should not immediately write to ConfigurationValue — each index step fires onCurrentIndexChanged creating rapid dconf writes. Pattern: store pendingValue on change, start a debounce Timer (1000ms), write to config only in onTriggered.",
+      "shader_toggle_overhead_can_exceed_constant_on": {
+        "description": "Gating an expensive ShaderEffect on/off per interaction can cost MORE than leaving it constantly on. moWerk tried gating the launcher circle shader per peek gesture; the repeated pipeline setup/teardown produced visibly noticeable lag on repeated peeks, and the experiment was CANCELLED. Lesson: 'gate the expensive effect' is not automatically a performance win -- shader lifecycle churn has its own cost; measure both before committing.",
+        "confidence": "confirmed on hardware (moWerk, 2026-07), experiment cancelled after observing lag"
+      }
+    },
+    "drawing": {
+      "shapepath_asteroid_generation": {
+        "pattern": "Generate polygon points in polar coordinates (angle, radius) around a center point, then convert to Cartesian. Prevents self-intersecting paths.",
+        "pathpolyline_usage": "Use PathPolyline with array of Qt.point() to handle variable number of vertices. Close shape by appending first point to end of path array.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed"
+      },
+      "shadereffect_requires_source": {
+        "issue": "ShaderEffect without a source property renders nothing — no error, just invisible",
+        "fix": "property variant source: ShaderEffectSource { sourceItem: Rectangle { width: parent.width; height: parent.height; color: 'transparent' }; hideSource: true }",
+        "domain": "platform",
+        "confidence": "confirmed"
+      },
+      "shadereffect_color_uniform": {
+        "issue": "Passing a QML color property as a ShaderEffect uniform — the GLSL type must be vec4, not vec3.",
+        "pattern": "In QML: property color ringColor: '#FF4400'. In GLSL fragment shader: uniform highp vec4 ringColor;",
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "pathpolyline_preferred": "QtQuick.Shapes PathPolyline path binding re-evaluates automatically when any referenced property changes. No requestPaint or Connections needed. Available Qt 5.13+.",
+      "shadereffect_blending_off": "Set blending: false on ShaderEffect for full-screen opaque items like wallpapers. Eliminates alpha compositing cost at the compositor level. Only valid when the item is guaranteed to fill its entire parent with no transparency.",
+      "canvas_avoid": "Avoid JS Canvas (onPaint/requestPaint) for reactive drawing — requires manual repaint triggers, timing issues with Component lifecycle, onPaint callback cannot reliably access QML binding dependencies",
+      "canvas_first_paint": "Canvas requestPaint from Application Component.onCompleted fires before Canvas is ready and is silently dropped. Canvas should trigger first paint from its own Component.onCompleted.",
+      "canvas_guard": "Do NOT guard second-by-second Canvas repaints with if (stored !== new) — causes ticks to be skipped. Always requestPaint on every second tick for canvases that animate every second.",
+      "per_object_shapes": "For worlds with discrete visual objects, render one Shape per object via Repeater rather than one PathPolyline spanning the world.",
+      "carousel_polygon_wrap": "Never pass each polygon vertex through worldToScreenX independently. Wrap polygon center once, offset each vertex in screen space.",
+      "qt_rectangle_border": "Qt Rectangle border cannot layer above its own children — use a separate Rectangle anchors.fill with transparent fill and border, declared after the content items",
+      "qt_text_descender_centering": "Qt Text contentHeight includes font descender space. Pragmatic workaround: anchors.verticalCenterOffset: -Dims.l(N) where N is tuned per font size."
+    },
+    "animations": {
+      "qt_callLater_not_an_animation_trigger": "Qt.callLater fires in the same event loop iteration — the renderer does not paint an intermediate state. Use a Timer with interval matching the animation duration to guarantee a rendered frame exists at the start position.",
+      "two_behaviors_same_property": "Only the first matching Behavior on a given property is respected — a second Behavior on the same property is silently ignored. To vary easing or duration based on state, use a single Behavior with a ternary on duration/easing.type.",
+      "onRunningChanged_fires_on_start_and_stop": "NumberAnimation onRunningChanged fires twice per animation run. Prefer onStopped which fires only on completion.",
+      "animation_restart_vs_start": "Calling animation.start() on a NumberAnimation that is already in running=false state but whose target property has not changed may not reliably trigger onStopped. Always call restart() on animations attached to ListModel delegate slots that can be reused.",
+      "repeater_itemat_unreliable_after_mutation": "tilesRepeater.itemAt(n) does not reliably map to boardModel index n after ListModel mutations. Never call methods on delegate items via itemAt() when the model has been mutated — use model role properties and Behavior/animation on the delegate instead.",
+      "timer_sequenced_animation_pattern": "For sequenced per-item animations where each step must complete before the next begins: change property to trigger Behavior, Timer with interval equal to animation duration fires, timer does the logical model swap and calls the step function again. The Timer sequences the model swap after the animation completes.",
+      "smoothed_vs_number_in_behavior": "Use SmoothedAnimation instead of NumberAnimation inside Behavior blocks for properties driven by physics or toggled rapidly — SmoothedAnimation reverses from current animated value on interrupt, NumberAnimation snaps to end first.",
+      "sequential_animation_ownership": "SequentialAnimation on a property permanently takes ownership — any declarative binding on that property breaks after first animation run. Drive imperatively from signal handlers instead.",
+      "sequential_script_action": "NumberAnimation onStopped does not fire if animation has zero effective duration. Use SequentialAnimation with PauseAnimation { duration: 1 } before ScriptAction to guarantee script executes.",
+      "behavior_on_seconds_hand": "Behavior on rotation containing a seconds component updates every second — animation never completes, permanent 60fps compositor load. Use 16ms Timer with new Date() for millisecond-precision second hand instead.",
+      "parallel_animation_multi_property": "ParallelAnimation containing multiple NumberAnimation targets animates all properties simultaneously. Preferred over separate Behaviors when properties must move in lockstep.",
+      "set_state_before_animation": "For gesture-driven navigation animations, set the target state before starting the animation, not in the animation's onStopped handler. onStopped can trigger internal repositioning logic that conflicts with the animated value.",
+      "smoothed_hand_animation": "Timer { interval: 16; running: !displayAmbient && visible; onTriggered: { var now = new Date(); secondRot.angle = (now.getSeconds() * 1000 + now.getMilliseconds()) * 6 / 1000 } } — the correct pattern for smooth second hands.",
+      "rendering_is_not_animation_gate_separately": {
+        "description": "In Qt, rendering != animation. visible:false stops an item from RENDERING but a running Animation keeps consuming (timer callbacks, property writes) regardless. Animations therefore need their OWN gate, not just a hidden ancestor. The idiom `running: <cond> && visible` works because `visible` propagates false from ANY hidden ancestor -- so when hideOffscreen() hides a panel, the binding flips false and the animation stops instantly. Specimen: the QuickPanel battery pulse ran whenever charging (`running: isCharging && options.value.batteryAnimation`) even if the panel was never opened, because nothing gated it on visibility. moWerk found it reviewing the launcher; impact is tiny but it is a real always-running animation.",
+        "confidence": "confirmed on hardware/code (moWerk, 2026-07); MagneFire initially assumed hiding a panel also stops its animation -- it does not"
+      }
+    },
+    "interaction_patterns": {
+      "gesturefilterarea_qt6_touch_grab": "A mouse-only childMouseEventFilter (like the old GestureFilterArea) breaks under Qt6 once a touch-native Flickable/ListView child grabs: stealing the grab via the deprecated grabMouse() triggers the delivery agent's cancelTouchMouseSynthesis, after which no further events reach the mouse-only item and the swipe freezes on the first threshold-crossing move. Fix: make the filter touch-native (accept touch events, take the grab by accepting the filtered touch event, receive updates via a touchEvent override), mirroring QQuickFlickable::childMouseEventFilter. Fixed #237.",
+      "listview_drag_and_drop_reordering": {
+        "pattern": "For drag-and-drop reordering in ListView: (1) Use long-press timer (500ms) to initiate drag. (2) Store original data before drag starts for cancel/restore. (3) Move items in model during drag to provide real-time visual feedback. (4) Track both draggedItemIndex and targetIndex separately. (5) Hide dragged delegate (opacity: 0) and render separate drag proxy. (6) Use Timer to continuously check item under drag proxy during drag. (7) Disable ListView.interactive when drag is active. (8) On release, finalize with updateConfiguration().",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "listview_overscroll_null_item_access": {
+        "description": "ListView.itemAt() returns null when called with coordinates outside the visible content area during overscroll or boundary conditions. Always validate that itemAt() returned a non-null object before accessing any properties.",
+        "pattern": "var item = listView.itemAt(x, y); if (item && item.someProperty !== undefined) { /* safe to use */ }",
+        "domain": "ui-patterns",
+        "confidence": "confirmed"
+      },
+      "drag_and_drop_boundary_prevention": {
+        "description": "When implementing drag-and-drop reordering with drop barriers, prevent automatic scrolling from allowing drops into forbidden zones by checking target index against barrier indices in the scroll timer's target calculation logic.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "launchermodel_correct_property_names": {
+        "description": "launcherModel (Lipstick) item properties: app display title is '.title' (NOT '.name'). App icon identifier is '.iconId' (NOT '.icon'). App count is 'launcherModel.itemCount'. Launch call is 'launcherModel.get(index).launchApplication()'. Icons must be rendered with Icon {} from org.asteroid.controls using 'name: iconId'. Caching launcherModel items into a QML ListModel breaks launchApplication() on the cached copy — always call launcherModel.get(index) directly at launch time.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "highlight_bar_api": {
+        "description": "HighlightBar from org.asteroid.controls does NOT expose a 'containsPress' property. The correct property to programmatically activate the white pressed state is 'forceOn: bool'. HighlightBar manages its own 150ms ColorAnimation internally. HighlightBar emits only clicked() — no pressAndHold signal.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "horizontal_scrub_full_pattern": {
+        "pattern": "onPressed captures startX/startY. onPositionChanged compares dx vs dy against Dims.l(2) threshold — horizontal confirmed sets tracking=true and preventStealing=true, vertical sets mouse.accepted=false. onReleased and onCanceled both reset preventStealing=false and tracking=false.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "concurrent_timer_flag_race": {
+        "issue": "When two or more timers both set the same boolean flag to false on expiry, whichever timer expires first clears the flag while the other is still active.",
+        "fix": "Each timer's onTriggered must guard the flag clear: only set invincible = false if the other timer is not still running.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "onpressed_vs_onclick_latency": {
+        "pattern": "For beat-sync or rhythm apps where visual feedback must align with the physical tap moment, use onPressed for the visual trigger and onClicked for the logic. onClicked fires on finger lift — the touch duration (~30-50ms) causes perceptible phase offset.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "beat_sync_hard_cut": {
+        "pattern": "For beat-synchronized indicators, hard opacity cuts outperform animations: set opacity imperatively in onBeat, start a Timer to reset it after halfBeatMs = 30000/bpm. SequentialAnimation on opacity for beat indicators causes visual overlap at high BPM.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "circular_rotation_counting_gesture": {
+        "description": "For circular swipe gesture detection where the number of completed angular increments determines the selection: track property real rotationCount accumulating deltaAngle / stepDegrees each frame. deltaAngle normalized to -180..180 range to handle wraparound. Ignore swipes inside a central dead zone.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "text_wrapmode_requires_width": {
+        "issue": "wrapMode: Text.WordWrap on a Label or Text has no effect unless width is also explicitly constrained.",
+        "fix": "Always pair wrapMode: Text.WordWrap with width: parent.width.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      }
+    },
+    "game_patterns": {
+      "dual_anchor_camera": {
+        "principle": "Fix two screen anchors: shipScreenY (fraction from top) and surfaceScreenY (margin from bottom). Derive zoomScale = (surfaceScreenY - shipScreenY) / max(minViewBand, floorY - shipWorldY).",
+        "cinematic_blend": "Introduce cinematicFraction 0 to 1 animated over 1800ms. Blend zoomScale between gameplayZoom and cinematicZoom.",
+        "restore_on_new_game": "cinematicAnim.stop(); cinematicFraction = 0.0 in startLevel."
+      },
+      "direct_polygon_collision": "Replace heightmap with direct per-rock polygon query in physics tick. rockTopAtX(rock, wx) does exact edge intersection. 55 rocks x 8 verts = 440 ops at 60fps, trivially cheap.",
+      "carousel_world": "Ship wraps at world edges: newX = newX - floor(newX/ww)*ww. worldToScreenX wraps camera-relative dx.",
+      "combo_system": {
+        "score_formula": "Math.round((1 - min(1, elapsedMs/60000)) * 500 + fuel * 500) — range 0-1000 per run.",
+        "chain_rule": "Stash accumulates on successive landings. Crash resets.",
+        "local_vs_storage_antipattern": "Never maintain local QML property copies of persisted combo state alongside C++ storage properties."
+      },
+      "dimsfactor_game_scaling_pattern": {
+        "description": "For game apps where all visual elements need proportional pixel scaling without Dims.l integer rounding, declare: property real dimsFactor: Dims.l(100) / 100. All geometry is then expressed as dimsFactor * N. Avoids integer snapping artifacts from Dims.l() in rapidly-animated scenes. Note: dimsFactor is appropriate for game rendering geometry only — Dims.l() remains correct for all UI layout.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "accelerometer_tilt_to_rotate": {
+        "description": "To derive a clockwise/counterclockwise rotation angle from accelerometer data: compute the current angle each frame using Math.atan2(accelerometer.reading.x, accelerometer.reading.y) * 180 / Math.PI, then subtract the previous frame's angle to get the angular delta. Apply the delta to a rotation property with a range cap. Smooth the reading with exponential smoothing (factor ~0.65 for responsive game input).",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "paint_order_layer_items": {
+        "pattern": "For scenes with dynamic createObject items, use named anchors.fill: parent layer Items as insertion targets. Declare them in paint order within the scene Item.",
+        "antipattern": "Creating all dynamic objects into a single parent with z: values — creates two stacking contexts that cannot be reconciled when gameOver overlay needs to paint above everything.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "deathshader_autoplay_pattern": {
+        "pattern": "Self-contained shader components that play once and self-destruct: add property bool autoPlay: false and NumberAnimation on deathProgress { running: autoPlay; onStopped: if (autoPlay) root.destroy() }.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "js_object_integer_keys": "JS object with integer keys unreliable in QML for integer lookup — use explicit if-else chain instead",
+      "var_declaration": "Missing var declaration causes implicit global shared across function calls — causes level-jump bugs in rapid fire scenarios"
+    },
+    "settings_patterns": {
+      "aod_toggle_mechanism": {
+        "config_key": "/org/asteroidos/settings/always-on-display",
+        "type": "bool",
+        "default": true,
+        "lowpower_mode_sync": "displaySettings.lowPowerModeEnabled must be set in sync with the ConfigurationValue — true to enable AoD, false to disable.",
+        "domain": "settings",
+        "confidence": "confirmed-on-device"
+      },
+      "premute_level_pattern": {
+        "config_key": "/desktop/asteroid/pre-mute-level",
+        "type": "int (linear 0-100)",
+        "purpose": "Persists pre-mute volume across sessions. The soundToggle mute/unmute works by swapping the current linearVolume() with preMuteLevel.value.",
+        "domain": "settings",
+        "confidence": "confirmed-on-device"
+      },
+      "burn_in_protection": {
+        "config_key": "/org/asteroidos/settings/burn-in-protection-level",
+        "type": "float",
+        "values": {
+          "0.0": "Off",
+          "1.0": "High",
+          "0.5": "Medium",
+          "0.25": "Low"
+        },
+        "cycle_order": "Off to High to Medium to Low",
+        "rationale_float": "storing the multiplier directly as float allows power users to set arbitrary granularity via dconf; no int enum needed.",
+        "multiplier_consumption": "apply Math.max(0.0, Math.min(1.0, bipLevel.value)) at onDisplayAmbientUpdate"
+      },
+      "timezone_model": {
+        "region_model": "ListModel built by iterating timezoneList, deduplicating first path component",
+        "city_model": "ListModel built by filtering timezoneList for entries starting with selectedRegion + '/'",
+        "preselect": "positionViewAtIndex(selectIdx, ListView.SnapPosition) at end of both build functions"
+      },
+      "settings_page_mixed_type_listmodel": {
+        "pattern": "For complex settings pages containing heterogeneous row types, use a single ListView backed by a typed ListModel. Each row carries a 'type' role: 'toggle' for draggable/configurable items, 'label' for section headers, 'display' for non-interactive preview widgets.",
+        "refresh_model_pattern": "refreshModel() clears and repopulates slotModel from scratch on each settings change — simpler and safer than in-place mutations.",
+        "save_configuration": "saveConfiguration() extracts toggle IDs from slotModel in current order. Called on drag release, not during drag — prevents configuration thrash during active dragging.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      },
+      "iana_single_component_timezones": {
+        "description": "Some IANA timezone entries have no '/' separator — WET, Zulu, UTC, EST, CET etc. In a two-step region/city spinner UI these entries produce an empty city list. Detect with: timezoneList[i].indexOf('/') < 0. Treat as leaf nodes — apply SetTimezone directly and skip the city step entirely.",
+        "affected_entries": [
+          "WET",
+          "Zulu",
+          "UTC",
+          "EST",
+          "CET",
+          "EET",
+          "MST",
+          "HST",
+          "Factory"
+        ],
+        "domain": "platform",
+        "confidence": "confirmed-on-device"
+      },
+      "configurationvalue_nested_access": {
+        "pattern": "ConfigurationValue.value returns the entire stored object. Access nested properties via options.value.propertyName, not options.propertyName.value",
+        "example": "property string particleLayout: options.value.particleLayout || 'Diamonds'",
+        "gotcha": "Always provide fallback value with || operator for users upgrading from versions without that property",
+        "domain": "platform",
+        "confidence": "confirmed"
+      },
+      "option_cycler_api": "operates on strings not indices. properties: valueArray, currentValue. signal: valueChanged(string).",
+      "pageheader_height_topmargin": {
+        "pattern": "Always bind ListView anchors.topMargin to pageHeader.height rather than a magic fraction. Give PageHeader an id and reference it directly.",
+        "antipattern": "anchors.topMargin: parent.height * 0.15 — breaks if header height ever changes",
+        "domain": "ui-patterns",
+        "confidence": "confirmed"
+      },
+      "dconf_default_must_be_declared_once": {
+        "rule": "A dconf key read by more than one project must NOT have its defaultValue written out in each of them. Two ConfigurationValue blocks declaring different defaults for one key is a bug that only appears on a FRESH FLASH, while the key is still unset, and then hides itself the moment anything writes the key.",
+        "mechanism": "ConfigurationValue.defaultValue is a per-declaration fallback, not a property of the key. dconf itself stores nothing until a write happens, so every consumer of an unset key sees ITS OWN default. Consumers therefore disagree silently: one shows the user a toggle reading ON while another acts on OFF.",
+        "worked_example_2026_08_01": {
+          "key": "/desktop/asteroid/nightstand/always-on-display",
+          "asteroid_settings": "src/qml/NightstandPage.qml — defaultValue: true — so the UI showed AoD ON",
+          "asteroid_launcher": "src/qml/MainScreen.qml:300 — defaultValue: false — so on entering nightstand it wrote displaySettings.lowPowerModeEnabled = false",
+          "symptom": "After any fresh flash the always-on display was black in LPM while both AoD toggles read ON, and mcetool showed 'Use low power mode: disabled'. Survived three releases as 'unreproducible'.",
+          "chain": "unset key -> launcher default false -> lowPowerModeEnabled=false -> MCE pushes setAmbientEnabled(FALSE) to org.nemomobile.compositor -> lipstick discards every 60s ambient tick -> black screen, nothing logs an error",
+          "fix": "asteroid-launcher PR #289, merged 2026-08-02: the single line defaultValue: false -> true",
+          "followup_issue": "AsteroidOS/asteroid-launcher#290 — ship gsettings schemas so defaults live in one place"
+        },
+        "why_it_looked_unreproducible": "Every unrelated action that WRITES the key makes the symptom vanish permanently for that watch — disabling nightstand, unplugging the charger, the quickpanel AoD toggle, or opening the settings page. Anyone who touched the device while investigating destroyed their own repro. It is also intermittent across identical reboots, because mceChargerType starts at 0 and becomes 4 shortly after startup, so the race decides whether the bad value gets written at all.",
+        "how_to_check": "grep -rn 'ConfigurationValue' across asteroid-launcher, asteroid-settings and qml-asteroid, group by key, and flag any key whose declarations do not all carry the same defaultValue. A key read in two projects with defaults that differ is a latent fresh-flash bug.",
+        "how_to_test": "The ONLY state that exposes this class of bug is a genuinely unset key. Test on a fresh flash before touching any related UI, or run `dconf reset <key>` and reboot — reading the key in a settings page is already a write path on some pages.",
+        "maintainer_position": "FlorentRevest, 2026-08-02 on #290: the long-term fix is a gsettings schema; he explicitly rejected a CI grep-guard as 'more effort than the schema'. Note the counter-current: asteroid-btsyncd commit 22fa102 (2026-07-30) moved the last remaining schema, org.asteroidos.weather, OFF GSettings to MDConfItem — so there are currently zero AsteroidOS schemas shipped.",
+        "domain": "settings",
+        "confidence": "confirmed-on-device"
+      }
+    },
+    "sensor_app_patterns": {
+      "accelerometer_spirit_level": {
+        "smoothing": "property real smoothedX/Y/Z updated each onReadingChanged with factor 0.14 for spirit level stability",
+        "pitch_roll_from_z": "Use atan2 with Math.abs(smoothedZ) for dot-mode pitch/roll — gives correct angles when flat but hits gimbal lock near vertical",
+        "horizon_rotation": "Use atan2(smoothedX, smoothedY) XY-only formula for horizon mode scale rotation — gimbal-safe, confirmed stable at all angles",
+        "horizon_mode_hysteresis": "Enter at |pitch| > 60deg, exit at |pitch| < 50deg — prevents flicker at threshold",
+        "freeze_pattern": "frozen bool + frozenPitch/frozenRoll properties. dispPitch/dispRoll return frozen values when active. labelUpdateTimer pauses. Horizon mode blocked.",
+        "scale_range_animation": "Behavior on scaleRange with NumberAnimation duration 350ms animates tick positions smoothly on range change",
+        "rotate_to_reanchor_dot": "Rotate entire dot Item -90deg when Y axis locked so label anchored to parent.bottom appears visually to the left"
+      }
+    },
+    "components": {
+      "ValueCycler": "Minimal tap-to-cycle. Label + HighlightBar. Properties: valueArray, currentValue, labelColor, fontPixelSize (default Dims.l(10)), fontStyleName (default '' = system default). Tap advances index, emits valueChanged(string).",
+      "Marquee": "bidirectional scroll. paused property. speed property (default 1.0, higher = faster). implicitHeight: animatedText.contentHeight. Animation skips when text fits container.",
+      "BannerScroll": "Timer-driven left-scroll. Single Label starts at x=root.width.",
+      "RowSeparator": "pinToBottom: true inside list delegates — anchors to parent bottom edge. Plain RowSeparator {} as Column or Flickable sibling. height default Dims.l(0.25), color default #40ffffff. ANTIPATTERN: RowSeparator with pinToBottom inside a Column — anchors.bottom resolves to Column bottom, all separators stack there and column items collapse.",
+      "OptionCycler": "operates on strings not indices. properties: valueArray, currentValue. signal: valueChanged(string).",
+      "RemorseTimer": "replaces two-step confirm flows. store pending action in root Item property, not delegate scope.",
+      "spinner_unified_component": {
+        "description": "CircularSpinner (PathView-based) and Spinner (ListView-based) unified into a single Spinner component with wrap: true as default. PathView was retired because PathView delegates size to content width not view width, making touch targets as narrow as the text glyph.",
+        "wrap_trick": "Internal model is N * 5 items (5 repetitions). Each item stores spinnerIndex: i % N as a model role. View starts positioned in middle repetition. onFlickEnded recenters silently to middle repetition.",
+        "initialization_timing": "positionViewAtIndex fails silently when called before ListView has completed its first layout pass. Reliable pattern: onCountChanged fires when model reaches full count — start a Timer { interval: 1; repeat: false }.",
+        "userScrolling_guard": "property bool _userScrolling tracks active user interaction. root.onCurrentIndexChanged returns early when _userScrolling is true.",
+        "delegate_animation_suppression": "Set delegatesAnimated: false on root before positionViewAtIndex recentering jumps to prevent opacity/scale flicker.",
+        "domain": "ui-patterns",
+        "confidence": "confirmed-on-device"
+      }
+    },
+    "formatting": {
+      "note": "This section covers QML code formatting conventions only. Visual design language including color, typography, and layout rules lives in visual_design_guide.json.",
+      "no_column_alignment": "Never align property values with padding spaces. Plain sequential assignment only.",
+      "no_trailing_rulers": "No trailing horizontal rulers after section comments. Short prefix markers only.",
+      "letterSpacing_in_font": "letterSpacing belongs inside font {} block, not as a standalone property.",
+      "single_line_ternaries": "All ternaries must be single-line. Multi-line ternary where newline precedes colon silently evaluates only the first branch in Qt 5.15.",
+      "font_and_anchor_grouping_rule": "Any QML item with 2 or more font.X properties must use a font {} block. Any item with 2 or more anchors.X properties must use an anchors {} block. letterSpacing belongs inside font {} block, not as a standalone property.",
+      "tab_characters": "Never use tab characters for indentation — use 4 spaces. Kate editor inserts tabs silently.",
+      "qmlformat_rules": {
+        "description": "MagneFire CI lint runs qmlformat on all QML files. Violations cause CI failure.",
+        "rules": [
+          "All JS statements inside handlers and functions require semicolons — QML property bindings do not.",
+          "Connections target: property goes at the END of the block after all function handlers.",
+          "Root Item member ordering: id, properties, functions, anchors, Component.onCompleted, child items.",
+          "Blank line after closing brace of every child Item before next sibling.",
+          "Float literals normalised — remove trailing zeros: 1.0 to 1, 0.0 to 0, 0.30 to 0.3.",
+          "Imports sorted alphabetically — QtGraphicalEffects before QtQuick.",
+          "Single-line if-without-braces expanded to two lines with indented body.",
+          "return; becomes return ; with a space.",
+          "Behavior blocks always expanded multi-line, never single-line."
+        ],
+        "domain": "workflow",
+        "confidence": "confirmed"
+      },
+      "property_naming_minimum_length": "All QML property names must be descriptive and grep-safe — single-letter names are banned. Minimum two characters. dialRadius not R, handStroke not lw. Loop variables i/j/k in JS blocks are exempt — local scope, never searched."
+    },
+    "watchface_patterns": {
+      "canvas_to_pathanglearc": "Static Canvas arcs (battery, progress, time) must be replaced with declarative Shape+PathAngleArc+sweepAngle bindings. Eliminates requestPaint callbacks and JS execution.",
+      "pathanglearc_radius_reference": "PathAngleArc centerX/centerY/radiusX/radiusY must reference a named Item id (e.g. root.width), never parent.width/height. ShapePath has no geometry — parent inside PathAngleArc resolves to ShapePath not the enclosing Shape.",
+      "dropshadow_on_animated_layer": "Never put layer.effect: DropShadow on an Image or Item that updates at 16ms. Layer+DropShadow forces full 60fps shader recomposite on every frame.",
+      "canvas_smooth_antialiasing_remove": "Remove smooth: true and antialiasing: true from all Canvas items. smooth has no effect on Canvas. antialiasing forces unnecessary compositor work on Shape items.",
+      "nightstandmode_layer_texturesize": "Remove textureSize: Qt.size(width*2, height*2) from all nightstandMode and dockMode layer blocks. Double-resolution offscreen texture upload causes visible stutter on activation.",
+      "layer_dot_notation": "Flatten layer { } sub-object blocks to dot-notation for 1-2 properties: layer.enabled: true / layer.samples: 4. Sub-block syntax only when setting 3+ layer properties including a nested layer.effect.",
+      "16ms_sweep_timer": "Replace Behavior on second hand rotation angle with: Timer { interval: 16; repeat: true; running: !displayAmbient && visible; onTriggered: { var now = new Date(); secondRot.angle = (now.getSeconds() * 1000 + now.getMilliseconds()) * 6 / 1000 } }",
+      "beluga_full_screen_layout": "For watchfaces where content must cover the full screen on Beluga (320x360): use anchors.fill: parent on the root Item and introduce property real sq: Math.min(width, height) as the square reference dimension.",
+      "chargecolor_missing_colorarray": "chargeArc Shape items must declare readonly property var colorArray: ['red', 'yellow', Qt.rgba(.318, 1, .051, .9)]. Omitting this while referencing chargeArc.colorArray in ShapePath.strokeColor causes a silent crash in nightstand mode.",
+      "burnin_ternary_precedence": "Operator precedence bug: width * condition ? a : b evaluates as (width * condition) ? a : b. Always parenthesise: width * (condition ? a : b).",
+      "visibility_guard_obsolete": "The if (!visible) return guard in Connections { target: wallClock } blocks is now obsolete — WallClock.enabled: desktop.visible merged in MainScreen.qml stops the clock ticking behind active apps. Remove from all watchfaces.",
+      "canvas_to_rectangle": "Any Canvas drawing only static filled shapes should be replaced with plain Rectangle items.",
+      "split_static_animated_canvas": "When a Canvas contains both static elements and elements driven by a frequently-changing property, split into two canvases: one static (repaints only on isDark/time change) and one animated overlay.",
+      "render_strategy_cooperative": "All Canvas items in watchfaces should declare renderStrategy: Canvas.Cooperative — yields to the compositor between paints.",
+      "dropshadow_samples": "samples: 9 is sufficient for all soft glows on a 400px display",
+      "property_types": "Use property int or property real for numeric Canvas properties, never property var.",
+      "pathanglearc_binding": "PathAngleArc sweepAngle bindings on wallClock.time.getX() are unreliable — always use stored properties fed from Connections block.",
+      "hour_arc_overflow": "sweepAngle must use (angle % 360 + 360) % 360 to prevent >360 degree fill at PM hours",
+      "square_root_item": "Item { anchors.centerIn: parent; height: Math.min(parent.width, parent.height); width: height }",
+      "root_item_no_explicit_size": "Never set explicit width or height on the watchface root Item — the system fills it to screen size automatically. Setting width: Dims.l(100) breaks all parent.width and parent.height fractions the entire layout depends on.",
+      "dims_l_360px_base": "Watchfaces designed pre-Dims era assumed 360px screen. To convert hardcoded px values to Dims.l: divide by 3.6 to get the percentage.",
+      "import_qtquick_215_exception": "import QtQuick 2.15 is required for PathAngleArc and for PathView flickDeceleration/maximumFlickVelocity to have effect."
+    },
+    "qt5_limitations": {
+      "note": "Known limitations and incompatibilities in Qt 5.15 / Qt Quick 2.9 that require workarounds. These are QML/UI-layer limitations — build and platform limitations live in platform_and_build.json.",
+      "limitations": [
+        "Date.now() is unavailable in AsteroidOS QML — returns undefined or behaves unreliably. Workaround: declare a property int (e.g. elapsedTime: 0) and increment it imperatively with elapsedTime += interval inside onTriggered.",
+        "QML State PropertyChanges and a Connections block that imperatively sets the same anchor margin on the same target are mutually exclusive at runtime: Connections block wins for all subsequent runtime toggles. Fix: use State/AnchorChanges alone, or ensure the Connections block writes the exact same values the State declares.",
+        "ListView with drag-and-drop delegates throws TypeError when the user overscrolls beyond list bounds. Fixes: (1) bind delegate width to the ListView id directly rather than parent.width; (2) set boundsBehavior: Flickable.StopAtBounds to eliminate the overscroll state entirely.",
+        "property Timer foo: Timer { ... } does not register inner Timer id 'foo' in the enclosing Item's id scope. Fix: declare as Timer { id: fadeInTimer } sibling child.",
+        "Inside a child Timer's onTriggered, writing to a parent Item property without explicit qualification throws 'Invalid write to global property'. Always qualify: valueMeter.showingBrightness = false, never showingBrightness = false.",
+        "PropertyAnimation.onFinished not available in Qt Quick 2.0-2.9 — use Timer-based sequential transitions instead.",
+        "NumberAnimation duration not settable as property after declaration — bind to page-level property",
+        "property var holding C++-backed QtObject refs unreliable in Connections",
+        "Behavior on visible not supported — use Timer + opacity for fade-then-hide",
+        "ColorAnimation on Text forces rasterization — prefer Rectangle overlay",
+        "Only one Component.onCompleted allowed per QML component",
+        "Multi-line ternary where newline precedes colon silently evaluates only first branch — all ternaries must be single-line",
+        "Behavior on font.pixelSize not supported — snaps only",
+        "SequentialAnimation on a property takes permanent ownership — declarative binding on same property breaks after first run",
+        "Per-corner radius not supported on Rectangle — single radius only",
+        "clip on Rectangle clips to bounding box not to radius shape",
+        "Repeater inside Component not instantiated until createObject — pool pattern preferred",
+        "NumberAnimation onStopped does not fire reliably at zero effective duration — wrap in SequentialAnimation with PauseAnimation { duration: 1 } before ScriptAction",
+        "QML property lookup only walks to file root — child items cannot resolve unqualified property names from intermediate parent Items",
+        "layer.enabled on a child does not prevent opacity inheritance from parent — make child a sibling not a child",
+        "Conditional anchors (switching between undefined and real targets at runtime) are unreliable — use two separate items with visibility switching instead.",
+        "property var array mutation (unshift, index assignment) does not emit changed signal — always reassign: arr = arr after mutation",
+        "Connections deprecated onFoo syntax — use function onFoo() { } syntax in all new code",
+        "SequentialAnimation on opacity permanently takes ownership — any opacity: binding on the same Item is silently broken after the first run.",
+        "ShapePath.strokeColor alpha channel is silently ignored by Qt Shape renderer — use the parent Item opacity property for visual dimming instead.",
+        "JS operator precedence trap: running: !foo > 0 evaluates as (!foo) > 0 not !(foo > 0). Always write running: foo <= 0 or running: foo === 0 explicitly.",
+        "Loader always resizes its instantiated root Item to fill the Loader dimensions — wrap the widget in an Item and size the inner widget explicitly.",
+        "property alias cannot reference an id that lives inside a Loader-instantiated component — use a plain property on the consumer root and sync via Qt.binding in onStatusChanged.",
+        "Column positioner does not support horizontal anchors on children — anchors.left and anchors.right on Column children are silently ignored.",
+        "Switch component drives its own opacity from its enabled state internally — setting enabled: false causes permanent opacity reduction that cannot be overridden.",
+        "Declarative property binding on a value that emits onChanged fires immediately on ListView delegate re-instantiation when the delegate scrolls back into view — assign only on actual user interaction.",
+        "import QtQuick.Controls 2.15 is not available in AsteroidOS Qt 5.15 builds — causes module not found crash. SwipeView and PageIndicator must be replaced with plain QtQuick 2 equivalents."
+      ],
+      "domain": "platform",
+      "confidence": "confirmed"
+    },
+    "qt5compat_opacity_mask_no_anchors": {
+      "pattern": "Qt6 Qt5Compat.GraphicalEffects OpacityMask cannot be anchored directly. Wrap in Item { anchors.fill: target; OpacityMask { anchors.fill: parent; ... } }.",
+      "confirmed": "008-numerals-duo-synth-neon-green"
+    },
+    "import_order_opacity_mask_linear_gradient_exception": {
+      "pattern": "When OpacityMask and LinearGradient from Qt5Compat.GraphicalEffects are used together, QtQuick must precede Qt5Compat.GraphicalEffects in imports regardless of alpha order. qmlformat breaks this file — restore manually after every qmlformat run.",
+      "confirmed": "008-numerals-duo-synth-neon-green"
+    },
+    "shadereffect_qt6_qsb_required": {
+      "pattern": "ShaderEffect.fragmentShader must point to a pre-compiled .qsb URL. Inline GLSL crashes Qt6. Compile with: /usr/lib/qt6/bin/qsb --glsl '100 es,120,150' --hlsl 50 --msl 12 -o out.frag.qsb in.frag. Place in src/shaders/. Reference as ../shaders/filename.frag.qsb.",
+      "confirmed": "016-masked-spartan"
+    },
+    "chained_text_anchors_forbidden": {
+      "pattern": "Never anchor text items to other text items' top/bottom. Qt6 bounding box expansion cascades through the chain. Always anchor to parent.verticalCenter + verticalCenterOffset.",
+      "confirmed": "017-contemporary-digital-rings"
+    },
+    "bold_markup_weight_splitting": {
+      "pattern": "In Qt6, <b> always maps to Font.Bold regardless of base weight. For mixed-weight strings (e.g. bold day number + thin month name), use a Row with two Text items at correct weights. No markup needed.",
+      "confirmed": "017-contemporary-digital-rings"
+    }
+  }
+}

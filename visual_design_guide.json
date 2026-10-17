@@ -1,0 +1,315 @@
+{
+  "visual_design_guide": {
+
+    "watchface_legibility_on_device": {
+      "rule": "Judge watchface legibility on the real device backdrop at watch size, not on a blank or desktop-sized harness. A face laid out on a large screen (desktop harness, or a phone-class Nemo screen) is routinely too thin and too small once rendered on the ~480px physical watch: strokes vanish and type is unreadable. Adapting such a face for the watch means increasing line/stroke widths and font sizes.",
+      "harness": "The uw-script-rework loader harness renders faces over the actual FlatMesh wallpaper (asteroid-wallpapers/full/000-flatmesh.jpg copied in as background.jpg, which is .gitignored) so contrast and placement are judged against the varied colored surface the face will really sit on, never a plain black canvas. The transparent capture path used for store previews is separate and stays on transparent.",
+      "added": "2026-08-05 (moWerk: two new complication faces designed on a large screen were barely legible on the watch and needed heavier strokes and larger type)"
+    },
+
+    "meta": {
+      "purpose": "Canonical visual design reference for AsteroidOS app and UI development. Covers design decisions, principles, and constraints. For QML implementation patterns that achieve these designs, see qml_patterns.json.",
+      "audience": "App developers, watchface designers, UI contributors",
+      "status": "living document — append new decisions as they are made, do not overwrite history"
+    },
+
+    "philosophy": {
+      "colorful_background": "The animated FlatMesh wallpaper is a core part of the AsteroidOS visual identity and must always remain visible through the UI. Solid fills that fully cover the background are forbidden. This is a deliberate constraint — it allows users to personalise the visual feel by choosing a background, and it forces UI elements to be legible against a varied, colorful surface rather than defaulting to the easy path of white-on-black.",
+      "constraint_driven_design": "Design constraints are treated as creative triggers rather than limitations. The transparent background requirement is the primary example: it prevents lazy defaults and has historically produced solutions — outlined icons, large dominant text, subtle drop shadows — that would not have been explored on a plain black canvas.",
+      "holistic_change_rule": "Any visual change to the stock UI either must be in line with the existing design language, or must trigger a holistic change that brings all other elements into alignment. Per-app divergence that is not propagated system-wide is not accepted in stock. Community apps have a lower bar — see contribution_tiers.",
+      "org_asteroid_controls_as_source_of_truth": "All shared UI styling — colors, typography, component geometry — must flow through org.asteroid.controls (qml-asteroid). Per-app definitions of colors or fonts create maintenance islands: every future design change must then be chased across all individual callers. New visual directions must be introduced through the shared component library to be maintainable."
+    },
+
+    "screen_geometry": {
+      "primary_target": "Round screen. All layouts must be designed for round screens first. The round clipping circle is the primary constraint.",
+      "square_screen": "Square screens (dory family) are secondary. Elements that would clip on round screens must provide a hasRoundScreen: false guard with a square-specific alternative. Do not design for square-first.",
+      "rectangular_screen": "Beluga is the only rectangular-portrait device. Use Math.min(width, height) for any geometry that must not squish on this form factor.",
+      "reference_resolution": "240x240px is the Dims.l typography validation floor — the minimum screen size used to verify that font sizes at Dims.l(6) remain legible and Dims.l(14) does not clip. It is NOT catfish's screen resolution. Catfish is 400x400px native. Dims.l scales to actual Screen.desktopAvailableWidth, so Dims.l(100) = 400px on catfish. The 240px figure only matters when checking font size range limits.",
+      "safe_content_margin": "Content intended for text and interactive elements should be contained within a Dims.l(70) width, leaving Dims.l(15) margin to each side. This provides a circular safe zone consistent with round screen clipping.",
+      "touch_margin": "Interactive elements must not be placed closer than Dims.l(15) to Dims.l(20) from the screen rim. Fingers can typically reach within that band but accuracy drops sharply near the edge. This applies as a circular margin on round screens.",
+      "purely_visual_elements": "Decorative and purely visual elements are allowed to extend beyond the Dims.l(15) safe content margin into the rim area. Only interactive and text elements require the margin."
+    },
+
+    "typography": {
+      "primary_font": "Noto Sans — the only font permitted for flowing text, list items, labels, and any multi-language content. Noto Sans provides consistent glyph coverage across all 40+ supported languages including non-Latin scripts. No substitute is acceptable for body text.",
+      "default_size": "Dims.l(8) — the universal default. Legible on 240px screens without wrapping on typical short strings.",
+      "size_range": {
+        "ceiling": "Dims.l(14) — upper limit for Noto Sans before single words of ~6 characters risk clipping the screen edges.",
+        "floor": "Dims.l(6) — lower limit before glyphs become sub-pixel on 240px screens and legibility fails. Note: the same sub-pixel issue currently affects RowSeparator line width and is a known issue to fix."
+      },
+      "weight_conventions": {
+        "normal": "Default weight for all flowing text, list content, and descriptive labels.",
+        "medium_semibold": "Permitted for highlights, display strings, and app theming accents.",
+        "bold": "Reserved for text buttons and primary display/header strings. Semibold is also acceptable for buttons."
+      },
+      "legibility_on_varied_backgrounds": "White text is the primary legibility solution against the FlatMesh background. Text must be large enough to visually dominate the surrounding detail rather than compete with it. Subtle drop shadows are an accepted secondary technique. No hard rules for shadow values are established yet — apply sparingly and with visual judgment.",
+      "arm_length_readability": {
+        "principle": "Any text the user needs to read to operate the UI should be legible at arm's length without raising the watch toward the face. Requiring the user to raise a smartwatch to reading distance is a UX failure sign. Dims.l(10) is proposed as the practical minimum for operational text. The current Dims.l(8) default is acceptable for dense list content but should not be used for primary interactive labels or values the user acts on.",
+        "known_worst_offenders": "Notifications cannot reduce information density, making font size the only available lever. Confirm/cancel button labels are a secondary offender — standard positional conventions would remove the need to read them entirely.",
+        "domain": "typography",
+        "confidence": "proposed — not yet adopted as hard rule"
+      },
+      "display_fonts": {
+        "note": "The following fonts are pre-cleared for FOSS licensing and ship with AsteroidOS. They were selected to pair well with Noto Sans and are intended primarily for watchface theming, but may be used for app display strings and single-string accents.",
+        "fonts": [
+          { "name": "Source Sans Pro", "weights": "Bold, Regular", "license": "SIL OFL" },
+          { "name": "Roboto Flex", "license": "SIL OFL" },
+          { "name": "Outfit", "license": "SIL OFL" },
+          { "name": "Open Sans", "license": "Apache 2.0" },
+          { "name": "Roboto", "license": "Apache 2.0" },
+          { "name": "Montserrat", "license": "SIL OFL" },
+          { "name": "Bebas Kai / Bebas Neue", "license": "SIL OFL" },
+          { "name": "Titillium (Bold, Regular, Thin)", "license": "SIL OFL" },
+          { "name": "Fyodor", "license": "SIL OFL" },
+          { "name": "Raleway", "license": "SIL OFL" },
+          { "name": "League Spartan", "license": "SIL OFL" },
+          { "name": "Xolonium", "license": "SIL OFL" },
+          { "name": "Sunflower", "license": "SIL OFL" },
+          { "name": "Signika", "license": "SIL OFL" },
+          { "name": "PT Sans", "license": "SIL OFL" },
+          { "name": "Noto Sans", "license": "SIL OFL" },
+          { "name": "Symbola", "license": "SIL OFL" },
+          { "name": "Twemoji", "license": "MIT (code) / CC-BY 4.0 (graphics)" },
+          { "name": "FatCow", "license": "CC-BY 3.0" }
+        ]
+      },
+      "font_licensing_rule": "Any font introduced to the system constitutes redistribution and requires a verified FOSS license. SIL OFL and Apache 2.0 are the standard accepted licenses. Sites like font1001 and similar aggregators frequently misrepresent licenses — always verify against the original source. Google Fonts is the recommended trusted source for finding new FOSS-licensed fonts."
+    },
+
+    "color_system": {
+      "logo_ramp": {
+        "description": "The canonical AsteroidOS accent color ramp, derived from the project logo. Use for accents, highlights, progress indicators, and themed elements.",
+        "values": ["#be3729", "#dc2919", "#e54b3a", "#e56934", "#e57c21", "#e58a21", "#f19a11", "#f0ae0e", "#f0c30e"],
+        "structure_silver": "#e6e6e6"
+      },
+      "app_rainbow_palette": {
+        "description": "Stock app colors are assigned alphabetically and form a full clockwise hue-wheel traversal when scrolling through the launcher. Center color sets the FlatMesh inner polygon color. Outer color is always a near-black tint of the center hue — maximum #0c on any channel. New stock apps must choose a center and outer that fit naturally into the progression without duplicating an existing hue region.",
+        "center_color_ceiling": "#7a7a7a perceived brightness — new center colors must not exceed this luminance. All current stock colors respect this. Saturation can be high; luminance must remain dark enough to keep the FlatMesh readable.",
+        "outer_color_rule": "Near-black with a faint residual tint of the center hue. Derive by desaturating center toward black while preserving a trace of the hue. Maximum value on any channel: #0c (~5% brightness).",
+        "apps": [
+          { "app": "Agenda",      "center": "#cc7700", "outer": "#0c0300", "hue_region": "amber-orange" },
+          { "app": "Alarm Clock", "center": "#cc9800", "outer": "#0c0500", "hue_region": "amber-yellow" },
+          { "app": "Calculator",  "center": "#7ca600", "outer": "#0c0b00", "hue_region": "yellow-green" },
+          { "app": "Compass",     "center": "#29a600", "outer": "#070c00", "hue_region": "green" },
+          { "app": "Diamonds",    "center": "#009933", "outer": "#000c00", "hue_region": "mid-green" },
+          { "app": "Flashlight",  "center": "#00a698", "outer": "#000c07", "hue_region": "teal" },
+          { "app": "Heart Rate",  "center": "#0097a6", "outer": "#00060c", "hue_region": "cyan-teal" },
+          { "app": "Music",       "center": "#2577b3", "outer": "#000619", "hue_region": "blue" },
+          { "app": "Settings",    "center": "#0044a6", "outer": "#00010c", "hue_region": "deep blue" },
+          { "app": "Stopwatch",   "center": "#9800a6", "outer": "#0c0009", "hue_region": "purple" },
+          { "app": "Timer",       "center": "#a6005f", "outer": "#0c0003", "hue_region": "pink-purple" },
+          { "app": "Weather",     "center": "#a6001b", "outer": "#0c0200", "hue_region": "red" },
+          { "app": "asteroid-beatfork (community)", "center": "#119DA4", "outer": "#090B0C", "hue_region": "teal — fits between Flashlight (#00a698) and Heart Rate (#0097a6), slightly warmer. Valid example of correct hue-region selection and correct outer darkness." }
+        ],
+        "note_qmltester": "Qmltester (#b04d1c / #421c0a) is a developer tool excluded from the rainbow assignment. Do not use as a color reference.",
+        "note_default_fallback": "The default FlatMesh color when no app is active is defined in applauncherbackground.cpp in asteroid-launcher (AppLauncherBackground::centerColor / outerColor fallback path). Canonical defaults: center #888888, outer #000000. The #7a7a7a observed in screenshots is expected — FlatMesh triangle brightness never reaches the full center value at its brightest polygon. The hello-world example app currently ships an incorrect color pair with too-bright center and insufficiently dark outer and should be updated to center #888888 / outer #000000 or a correct hue-tinted pair per the rainbow rules."
+      },
+      "signal_colors": {
+        "description": "Semantic status colors. Not yet fully standardised across the system — the QuickPanel battery display is the current canonical reference. A theme-manager pass to unify all callers is planned.",
+        "good": { "hue": "#00ff00", "usage": "safe, charged, active, confirmed" },
+        "warning_transition": "Gradient from #ffa600 (at ~50%) to #ff0000 (at ~20%) — interpolated continuously, not stepped",
+        "critical": { "hue": "#ff0000", "usage": "low battery, danger, error" },
+        "indicator_opacity": "0.3 for filled background indicators (e.g. battery fill). Full opacity for icon or text signal use."
+      },
+      "opacity_conventions": {
+        "active_control": 0.9,
+        "inactive_unavailable_control": 0.4,
+        "active_background_circle": 0.7,
+        "inactive_background_circle": 0.4,
+        "axis_lines_tick_marks": 0.35,
+        "center_cross": 0.6,
+        "note": "Inactive and unavailable states both use 0.4 — no visual distinction between the two states currently."
+      },
+      "text_color": "White is the primary and default text color. Colored text is permitted for display strings, accents, and highlights — derive from the app center color or logo ramp. Never use black text over the FlatMesh background."
+    },
+
+    "icons": {
+      "style": "Outlined (stroke-only, no fills). Outlined icons reduce visual weight and allow the FlatMesh background to show through the glyph area, consistent with the transparency principle.",
+      "icon_set": "ios-icons (hard-forked at version 2.0). The upstream icon set diverged significantly in style after 2.0 — do not pull from upstream 3.0+. New icons must visually match the 2.0 line-weight and rounding style.",
+      "stroke_geometry": {
+        "source": "Derived from ios-circle-outline.svg and ios-square-outline.svg on 512x512 canvas",
+        "stroke_width_percent": "~3.1-3.5% of canvas width (16-18px on 512px canvas)",
+        "canvas_padding_percent": "~9-13% from canvas edge depending on shape",
+        "glyph_fill_percent": "~75-78% of canvas area",
+        "rule": "New icons should target approximately 3-3.5% stroke width relative to their canvas size. Visual matching to existing icons in the set is the final arbiter."
+      },
+      "circle_vs_circleless": {
+        "ratio": "sin(45deg) = 0.7071 — circle-less glyph content is approximately 0.851x the size of the circle variant (confirmed visually by dodoradio). The two variants are designed to be size-equivalent for composition and overlay use.",
+        "antipattern": "Upstream ios-icons 2.0+ broke this equivalence — circle-less variants have larger glyph content than circle variants in later versions. This is why AsteroidOS hard-forked at 2.0."
+      },
+      "launcher_rendering": "SVGs are black paths. The QML Icon component renders them white for use on the FlatMesh background. In the launcher, icons appear black with some opacity when displayed on white circular app-launcher buttons.",
+      "launcher_icon_shape": "All launcher icons are presented inside circles. Ion icon proportions and spacing are designed to sit naturally within a circle — this is the reason they are canonical for the project.",
+      "new_icon_rule": "New icons must match the ios-icons 2.0 visual language: same line weight, same rounding radii, same padding from canvas edge. Do not introduce filled or solid-weight icons."
+    },
+
+    "layout": {
+      "max_functions_per_screen": {
+        "rule": "Never present more than 3 primary interactive functions on a single screen. Each function needs at least 1/3 of the screen to be comfortably operable.",
+        "rationale": "Small screen constraint — crowding more than 3 interactive targets makes each one too small to operate reliably and visually overwhelming.",
+        "overflow": "When more than 3 interactive elements are needed, add additional LayerStack pages."
+      },
+      "page_structure": {
+        "layerstack": "LayerStack is the canonical navigation structure for multi-page apps. Additional pages slide in from the right on push and out to the right on pop.",
+        "page_dots": "PageDots naturally indicate the presence of additional pages in the LayerStack.",
+        "page_indicators": "PageIndicators always hint at the swipe direction available for system-level LayerStack navigation."
+      },
+      "page_header": {
+        "purpose": "The PageHeader must always confirm to the user which page has opened after a navigation action.",
+        "visibility_rule": "The PageHeader is allowed to hide after the first user interaction on the page, to free screen space for operational UI elements. It must always be visible on initial page load.",
+        "situational_use": "After hiding on first interaction, the PageHeader may be repurposed to show situational contextual content relevant to the current UI state.",
+        "known_issue": "The current PageHeader implementation can catch mouse input while visually hidden. This is a known bug — do not copy the pattern. A rework to respect round screens and not intercept input when hidden is planned. Reference: asteroid-beatfork was affected by this.",
+        "consistency_issue": "Some settings pages currently omit the PageHeader where content was deemed self-explanatory. This is an inconsistency to be resolved — all pages should have a PageHeader per the rule above."
+      },
+      "named_spacing_constants": {
+        "status": "proposed — not yet implemented",
+        "problem": "Current practice uses Dims.l(N) with magic numbers throughout all apps (e.g. Dims.l(70) for safe content width, Dims.l(15) for rim margin). These numbers are not self-documenting and must be looked up in the design guide to understand their semantic meaning.",
+        "direction": "Named constants like Dims.roundScreenContentWidth or Dims.rimMargin would make callsites self-documenting and reduce the chance of contributors using arbitrary values. The Sailfish Silica scalability guide (https://sailfishos.org/develop/docs/silica/sailfish-application-scalability.html/) serves as a reference model for this approach.",
+        "domain": "spacing",
+        "confidence": "proposed"
+      }
+    },
+
+    "navigation_gestures": {
+      "system_reserved": {
+        "top_down_edge_swipe": "Reserved system-wide to kill/close the current app. Apps must not use this gesture.",
+        "left_to_right_edge_swipe": "Reserved for back navigation — returns to the previous page or to the launcher. Apps must not use this gesture."
+      },
+      "in_app_swipe": {
+        "rule": "In-app swipe gestures must originate from center toward edge, in the same direction as system swipe gestures. They must not conflict with system edge swipe recognition.",
+        "full_width_available": "Bottom-up swipe and right-to-left swipe have full screen width available for in-app use.",
+        "right_to_left": "Right-to-left swipe advances to the next page in LayerStack navigation. Also permitted for horizontal lists or carousels when no additional LayerStack pages exist."
+      },
+      "confirm_cancel_standard_position": {
+        "status": "known gap — no standard exists yet",
+        "problem": "Confirm and cancel actions currently have no standardised screen position across apps. Users must read labels to distinguish them, which conflicts with arm-length readability and quick-glance operation.",
+        "direction": "Standard positional conventions (e.g. confirm always at a consistent screen position, cancel at the opposing position) would allow muscle-memory operation without label reading. No final positions established yet — this is an open design issue.",
+        "domain": "interaction",
+        "confidence": "identified-gap"
+      }
+    },
+
+    "animation": {
+      "feel_target": "Snappy and lean. Animations must never get in the way of the user or feel like the UI is making them wait. They should aid understanding of UI flow or provide visual feedback only.",
+      "duration_cap": "250ms is the maximum for blend-in and blend-out transitions driven by user input. Shorter is generally better.",
+      "slow_animations": "Slow animations are only acceptable for non-blocking eyecandy (e.g. background particle systems, idle displays). They must never block user input or delay UI response.",
+      "performance_rule": "Scaling objects by large amounts using Behavior is costly and can cause performance drops. Avoid large-scale Behavior animations. Prefer opacity and position transitions.",
+      "forbidden_aesthetics": "Cheesy or clownish animations are explicitly unwanted. Animations must not distract — they should be nearly invisible in normal use, only noticed when absent.",
+      "layerstack_transition": "The LayerStack slide-in from the right is inherited from Lipstick and is considered correct and part of the design language. Duration has never been explicitly tuned but is considered appropriate as-is.",
+      "eyecandy_opt_out": "Any eyecandy animation that may impact performance must be disableable in settings. Example: the battery particle system in the battery meter.",
+      "scaling_antipattern": "Do not use Behavior on scale or width/height for large visual changes — the GPU cost is disproportionate on watch hardware."
+    },
+
+    "feedback_and_states": {
+      "inactive_unavailable": "Both inactive and unavailable states use 0.4 opacity. No visual distinction between the two is currently established.",
+      "loading_progress": "No loading or progress indicator pattern exists yet. App startup produces a blank period followed by the LayerStack slide-in transition inherited from Lipstick. A blocking indicator to prevent double-tap during this period is a known gap.",
+      "haptics": "Haptic feedback is reserved for notifications and alarms via vibration. Use sparingly to conserve energy. No further rules are currently established.",
+      "confirmation_pattern": "No standard confirmation pattern exists yet. This is a known gap.",
+      "loading_overlay_design_spec": {
+        "trigger": "Any app launch tap. Must show within 200ms to prevent user confusion and double-tap multi-launch. Hardware startup times vary from under 1 second to 30 seconds depending on app complexity.",
+        "visual_layers": "Bottom: existing wallpaper reused as background (free — already rendered, no redraw). Middle: pulsing AsteroidOS logo SVG fading to 75% opacity on a 500ms cycle. Top: excuse messages (see below).",
+        "excuse_messages": "Displayed only after 4 seconds of loading to avoid visual noise on fast starts. Cycle every 2 seconds. Confirmed humorous set: 'Still working', 'No worries, i am alive', 'Yeah, sorry.', 'Ugh, nearly there', 'Peeep Bop', 'Pheeeew'. Tone: self-deprecating, matches project personality.",
+        "input_blocking": "Full-screen MouseArea swallows all input events while overlay is visible. Prevents multi-launch hammering confirmed as a real user behaviour observed at FOSDEM.",
+        "fade_timing": "Overlay appears instantly (visible: true), wallpaper shown at 0ms, curtain fade 100ms, logo pulse starts at ~180ms."
+      }
+    },
+
+    "display_blanking": {
+      "rule": "Display blanking prevention is only permitted when it is certain the user is actively operating the device. The moment there is any possibility the user has put the watch down without explicitly closing the app, blanking must be allowed.",
+      "allowed_example": "Active gameplay in a game — user is 100% engaged and the display staying on is genuinely convenient.",
+      "forbidden_example": "Game start screen or game over screen — the user may simply leave the watch in that state. Preventing blanking here would leave the display on indefinitely with no user present.",
+      "implementation_note": "See qml_patterns.json display_blanking section for implementation patterns."
+    },
+
+    "ambient_aod": {
+      "apps": "Apps do not have the ability to run during Always-On Display mode. AoD is exclusive to watchfaces and the MainScreen.",
+      "watchfaces_stock": "Stock watchfaces must define an AoD view, a nightstand view, and a burn-in protection maximum offset. These are blockers for stock inclusion.",
+      "watchfaces_community": "Community watchfaces have no AoD requirement. AoD is not a review blocker for community watchface contributions.",
+      "aod_display_rules": "AoD updates only once per minute. AoD content should only show elements that update on a per-minute cadence. Seconds displays and animations are not appropriate. Color is discouraged but not forbidden — note that some devices (sparrow, wren) support only 4 colors in AoD and high-color content will appear glitchy on them."
+    },
+
+    "quickpanel": {
+      "toggle_ordering": {
+        "principle": "QuickPanel slider toggles are ordered by expected usage frequency, with highest-utility toggles in the first visible row. Toggles of lower everyday utility should be disabled by default and left for users to discover and enable in settings, rather than cluttering the default slider row. This preserves prime real estate for the most universally useful controls while communicating that the panel is configurable.",
+        "rationale": "Established during the airplane mode toggle review: airplane mode was considered of greater everyday utility than cinema mode and was placed in cinema's former slot. Cinema mode was moved down and disabled by default. The principle generalises — a filled row of enabled toggles is not a goal in itself.",
+        "default_enabled_bar": "A toggle should be enabled by default only if the majority of users on the majority of devices would plausibly use it in a typical week. Toggles that serve specific scenarios (cinema, music shortcut, flashlight shortcut) should ship disabled.",
+        "domain": "quickpanel",
+        "confidence": "confirmed"
+      }
+    },
+
+    "contribution_tiers": {
+      "community_apps_and_watchfaces": {
+        "bar": "Low entry bar. Primary requirement is that the contribution runs correctly and does not cause performance issues or system instability.",
+        "review_approach": "Code quality issues are mentioned as mentoring feedback but are never blockers. The project has an explicit educational and mentoring goal for new contributors.",
+        "design_compliance": "Design guidelines are hints and learning opportunities, not hard blockers for community contributions."
+      },
+      "stock_inclusion": {
+        "bar": "Higher bar. Code quality, design language compliance, and architectural soundness are all reviewed.",
+        "design_compliance": "Full compliance with visual design guidelines is required. Any divergence from the established language requires team discussion and a holistic plan.",
+        "two_eyes_principle": "Every merge to stock repos requires review by at least one co-maintainer."
+      }
+    },
+
+    "known_debt": {
+      "agenda_design_debt": {
+        "status": "known offender — redesign needed before stock quality standard is met",
+        "issues": [
+          "Uses colored bands instead of lines to separate visual sections — inconsistent with all other AsteroidOS apps which use RowSeparator lines.",
+          "Custom visual components not shared through org.asteroid.controls, creating a maintenance island.",
+          "Interactive gestures not visually signalled as interactive.",
+          "Simultaneous font and rect scaling animation causes heavy overdraw and visible lag — a known performance problem.",
+          "Visually detached from the rest of the AsteroidOS design language since 1.0 — the redesign pass improved colors and fonts but preserved the structural inconsistency."
+        ],
+        "note": "This is documented without blame — the design debt predates the current visual language and the 1.0 redesign had no written design guide to follow.",
+        "domain": "stock-apps",
+        "confidence": "confirmed"
+      }
+    }
+  },
+  "qt6_layout_tuning": {
+    "note": "All values tuned empirically on sturgeon (400px, Qt 6.11) by screenshot comparison against Qt5 vanilla (400px, tunny, Qt 5.15). Use as starting points when porting watchfaces with the same font at similar sizes. Qt6 allocates larger text bounding boxes than Qt5 — see qml_patterns.json qt6_text_bounding_box_larger.",
+    "verticalCenterOffset_corrections": {
+      "SourceSansPro_Light_24pct": {
+        "watchface": "001-words-worte-palabras-mots",
+        "font": "SourceSansPro",
+        "weight": "Font.Light",
+        "pixelSize_fraction": 0.24,
+        "qt5_verticalCenterOffset_fraction": -0.085,
+        "qt6_verticalCenterOffset_fraction": -0.029,
+        "device": "sturgeon 400px Qt 6.11",
+        "note": "Reduce absolute value because Qt6 bounding box is larger and glyphs appear to float higher within it. Tune sign and magnitude empirically — positive values push text below center."
+      }
+    },
+    "text_bottom_anchor_topMargin_corrections": {
+      "note": "topMargin on items anchored top: someText.bottom must be reduced (and may go negative) in Qt6 because the text bounding box extends further below visible glyphs than in Qt5.",
+      "001_dateDisplay_below_SourceSansPro_Light_24pct": {
+        "watchface": "001-words-worte-palabras-mots",
+        "qt5_topMargin_fraction": 0.09,
+        "qt6_topMargin_fraction": -0.019,
+        "anchored_below": "SourceSansPro Light at 24% pixelSize",
+        "device": "sturgeon 400px Qt 6.11"
+      }
+    },
+    "dropshadow_recreation_from_canvas": {
+      "000_default_digital_centered_glow": {
+        "watchface": "000-default-digital",
+        "canvas_shadowBlur_fraction": 0.0125,
+        "dropshadow_radius_fraction": 0.0235,
+        "dropshadow_horizontal_offset": 0,
+        "dropshadow_vertical_offset": 0,
+        "samples": 17,
+        "spread": 0,
+        "note": "Centered glow shadow around Roboto numerals."
+      },
+      "001_word_clock_offset_shadow": {
+        "watchface": "001-words-worte-palabras-mots",
+        "canvas_offset_px": 4,
+        "dropshadow_offset_fraction": 0.01,
+        "dropshadow_radius_fraction": 0.014,
+        "samples": 9,
+        "color": "#60000000",
+        "note": "Diagonal offset shadow. Both axes equal root.height * .01."
+      }
+    }
+  } 
+}

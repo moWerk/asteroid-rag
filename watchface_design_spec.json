@@ -1,0 +1,420 @@
+{
+  "_meta": {
+    "title": "AsteroidOS Watchface Design Specification",
+    "version": "2026-06-14",
+    "purpose": "Self-contained specification covering both watchface authoring and Qt6 refactoring. Replaces watchface_refactor_master.json. Covers platform APIs, layout patterns, design language, feature module templates, and all confirmed Qt6 migration patterns.",
+    "how_to_use": "Upload this file into any watchface session. For new authoring use the file_template and feature_modules sections. For Qt6 refactoring use the qt6_migration section. All patterns are confirmed on device (catfish TicWatch Pro 400px square, beluga OPPO Watch 402x476px rectangular).",
+    "qt_target": "Qt 6.11 LTS minimum. All patterns are Qt6-first.",
+    "naming_note": "The system-wide convention for the charging display mode is nightstandMode. Older watchfaces use dockMode — that is a legacy id predating the convention. In all new and refactored watchfaces use nightstandMode.",
+    "pending_migration": "kido has proposed migrating from Qt5Compat.GraphicalEffects to QtQuick.Effects MultiEffect. MultiEffect covers DropShadow, Glow, ColorOverlay, Blur — but NOT OpacityMask or LinearGradient which have no MultiEffect equivalent. Files using only DropShadow/Glow/ColorOverlay can drop Qt5Compat entirely once migrated. Files using OpacityMask or LinearGradient must retain Qt5Compat. This migration is a future sed-based pass after all current refactor PRs are merged."
+  },
+  "file_template": {
+    "spdx_header": {
+      "format": "One line per author, newest first. License identifier last. No blank line between any lines.",
+      "example": "// SPDX-FileCopyrightText: 2025 Your Name <github.com/yourhandle>\n// SPDX-License-Identifier: LGPL-2.1-or-later",
+      "design_comments": "Design intent comments go immediately below the SPDX block as // lines. No blank // lines between paragraphs — qmlformat strips them. Block runs flush top to bottom.",
+      "year_rule": "Use the file's original creation year. Do not update the year on refactoring passes. Refactoring-only passes do not warrant adding a copyright entry.",
+      "handle_rule": "github.com/moWerk is the correct handle. eLtMosen and el-t-mo@arcor.de are deprecated.",
+      "never_do": [
+        "Never add a moWerk copyright line to a watchface authored by someone else.",
+        "Never change the creation year to the refactor year.",
+        "Never add a copyright entry for a refactoring-only pass."
+      ]
+    },
+    "root_skeleton": {
+      "description": "Every watchface is a single QML file. The root is an Item that fills the parent (screen). The system sets its size to the full display. Never set explicit width or height on the root Item.",
+      "template": [
+        "Item {",
+        "    id: root",
+        "",
+        "    property real rad: 0.01745",
+        "    property real maxSize: Math.min(width, height)",
+        "    property real activeArcOpacity: !displayAmbient ? 0.7 : 0.4",
+        "    property real inactiveArcOpacity: !displayAmbient ? 0.5 : 0.3",
+        "    property real activeContentOpacity: !displayAmbient ? 0.95 : 0.6",
+        "    property real inactiveContentOpacity: !displayAmbient ? 0.5 : 0.3",
+        "",
+        "    anchors.fill: parent",
+        "",
+        "    Item {",
+        "        id: faceBox",
+        "",
+        "        width: root.maxSize",
+        "        height: root.maxSize",
+        "        anchors.centerIn: parent",
+        "",
+        "        // ... all visual content ...",
+        "    }",
+        "}"
+      ]
+    }
+  },
+  "imports": {
+    "ordering_rule": "Alphabetical order. No version numbers in Qt6. See exceptions below.",
+    "exceptions": {
+      "qt5compat_load_order": "When Qt5Compat.GraphicalEffects items that inherit from QtQuick.Item are used (OpacityMask, LinearGradient, ColorOverlay, Glow, DropShadow as layer.effect with anchors), QtQuick MUST precede Qt5Compat.GraphicalEffects. Listing Qt5Compat first causes a runtime 'Cannot assign to non-existent property anchors' error. Document the exception with a comment in the import block.",
+      "qt5compat_load_order_comment": "// QtQuick must precede Qt5Compat.GraphicalEffects when [EffectName] is used —\n// GraphicalEffects types inherit from QtQuick.Item and require it to be loaded first.",
+      "qt5compat_as_shapes_alias": "When QtQuick.Shapes is imported alongside Qt5Compat.GraphicalEffects AND LinearGradient is used, import QtQuick.Shapes as Shapes. This keeps QtQuick.Shapes sorted after QtQuick alphabetically, naturally placing QtQuick before Qt5Compat.GraphicalEffects without violating qmlformat. Do NOT remove the alias in this case — it is an active load-order fix, not a Qt5 workaround.",
+      "confirmed_cases": [
+        "analog-goldie — LinearGradient, requires Shapes alias",
+        "analog-silver-swerver — LinearGradient, requires Shapes alias",
+        "digital-fat-bwoy-slim — LinearGradient + OpacityMask, QtQuick first",
+        "digital-random-color-pop — LinearGradient + OpacityMask, QtQuick first",
+        "digital-koiyu — ColorOverlay, QtQuick first",
+        "digital-terminal-haiku — Glow, QtQuick first",
+        "nixie-delight — Glow, QtQuick first",
+        "analog-weather-glow — ColorOverlay, QtQuick first"
+      ]
+    },
+    "standard_full_set": [
+      "import Connman",
+      "import Nemo.Configuration",
+      "import Nemo.Mce",
+      "// QtQuick must precede Qt5Compat.GraphicalEffects when [Effect] is used —",
+      "// GraphicalEffects types inherit from QtQuick.Item and require it to be loaded first.",
+      "import QtQuick",
+      "import Qt5Compat.GraphicalEffects",
+      "import QtQuick.Shapes",
+      "import QtSensors",
+      "import org.asteroid.controls",
+      "import org.asteroid.utils",
+      "import \"weathericons.js\" as WeatherIcons"
+    ],
+    "minimal_analog_no_complications": [
+      "import QtQuick",
+      "import QtQuick.Shapes"
+    ],
+    "minimal_digital_with_battery": [
+      "import Nemo.Configuration",
+      "import Nemo.Mce",
+      "import QtQuick",
+      "import org.asteroid.controls"
+    ],
+    "when_to_include_each": {
+      "Connman": "Only when WiFi toggle (NetworkTechnology) is present.",
+      "Nemo.Configuration": "When reading ConfigurationValue — weather data, use-fahrenheit, use-12h-clock.",
+      "Nemo.Mce": "When MceBatteryLevel or MceBatteryState are used.",
+      "Qt5Compat.GraphicalEffects": "When ColorOverlay, OpacityMask, DropShadow as layer.effect, Glow, or LinearGradient are used. Check carefully — QtGraphicalEffects 1.15 was the Qt5 name, must be renamed.",
+      "QtQuick.Shapes": "When Shape / ShapePath / PathAngleArc arcs are used.",
+      "QtSensors": "When HrmSensor or StepCounterSensor are used.",
+      "org.asteroid.controls": "When Icon, Label, or BluetoothStatus are used. BluetoothStatus is in org.asteroid.utils not controls — check carefully before removing either.",
+      "org.asteroid.utils": "When BluetoothStatus or DeviceSpecs are used. BluetoothStatus lives here. Remove only after confirming neither is present.",
+      "weathericons.js": "When weather icon display is present. Always the last import line."
+    },
+    "dead_import_removal": "Always grep the full file before removing any import. org.asteroid.controls provides BluetoothStatus — not org.asteroid.utils as assumed. QtGraphicalEffects may be imported but unused — confirm by searching for DropShadow, ColorOverlay, Glow, LinearGradient, OpacityMask before removing."
+  },
+  "square_geometry": {
+    "overview": "AsteroidOS runs on both square (e.g. catfish 400x400) and rectangular (e.g. beluga 402x476) screens. All watchface geometry must be square-safe. The canonical pattern is a square faceBox container inside the full-panel root.",
+    "root_pattern": {
+      "rule": "root Item always uses anchors.fill: parent. Never set explicit width or height on root. Add property real maxSize: Math.min(width, height).",
+      "correct": "Item { id: root\n    property real maxSize: Math.min(width, height)\n    anchors.fill: parent\n    ...\n}",
+      "wrong": "Item { width: parent.width; height: parent.height; anchors.centerIn: parent }"
+    },
+    "faceBox_pattern": {
+      "rule": "Wrap all visual content in a square faceBox Item. All children use parent.width and parent.height which resolve to the square dimension.",
+      "template": "Item {\n    id: faceBox\n    width: root.maxSize\n    height: root.maxSize\n    anchors.centerIn: parent\n}",
+      "alternative": "Math.min(parent.width, parent.height) is equivalent to root.maxSize and acceptable when root id is not yet established.",
+      "connections_placement": "Connections and Timer items have no geometry dependency. Place them at root level outside faceBox.",
+      "function_placement": "Helper functions with no geometry dependency go on root above anchors.fill: parent."
+    },
+    "full_bleed_elements": {
+      "rule": "Some elements must fill the full panel rather than the square faceBox. Place these as direct root children before faceBox.",
+      "examples": [
+        "Background SVGs that should fill the full panel (day-clock-24h background arc, sfos-style-three dark overlay, humongous layer2mask)",
+        "Radial/wedge Canvas items where slight elliptical distortion is imperceptible (day-clock-24h twentyfourhourArc)",
+        "Hand Canvas items that should reach the screen edges on beluga (motivational-quotes)"
+      ],
+      "knockout_shader_pattern": "For ShaderEffect knockout masks: layer2mask Rectangle at root level (anchors.fill: parent fills full panel). _mask Rectangle inside faceBox OR at root level. Text mask items inside _mask with font sizes using root.maxSize. This prevents letterbox gaps in the dark overlay on beluga while keeping digit proportions square-safe."
+    },
+    "orbit_centre_in_root_coordinates": {
+      "rule": "Items positioned as direct root children use root.width/2 and root.height/2 as the orbit centre. This correctly resolves to the panel centre on all screen shapes — the same point as the faceBox centre. Do NOT use root.maxSize/2 for centre coordinates of root-level items.",
+      "confirmed": "analog-commander tick delegates, pulsedot circles, orbiting-asteroids, rainbow-uprising bars",
+      "wrong": "Using root.maxSize/2 as cy on beluga places items 20px above the panel centre, causing the upward shift seen in pulsedot testing."
+    },
+    "orbit_centre_in_faceBox_coordinates": {
+      "rule": "Items inside faceBox with centerX/centerY properties must use parent.width/2 and parent.height/2 (resolving against the square faceBox). If the item references root.width or root.height for its orbit centre it will be offset by the letterbox margin on beluga.",
+      "confirmed_bug": "analog-scientific tick Repeaters used root.width/root.height inside faceBox — ticks bunched at top on beluga. Fix: switch to root.maxSize/2 (equivalent to parent.width/2 inside a square faceBox)."
+    },
+    "rectangle_circular_shape": {
+      "rule": "Rectangles that must be circular should use height: width rather than separate height expressions. This prevents oval shapes on beluga.",
+      "animation_caveat": "When both width and height have Behavior animations and are driven imperatively (e.g. pulsedot circlePulse), use separate Behavior on width and Behavior on height blocks AND drive both width and height imperatively. Using height: width as a declarative binding breaks when width is assigned imperatively — the binding is permanently lost after the first assignment, causing animation failure.",
+      "confirmed": "pulsedot — height: width binding broken by imperative assignment; reverting to independent width/height with matching Behaviors restored animation correctly."
+    },
+    "font_size_rule": "All font pixelSize values must use root.maxSize (or parent.height when parent is a guaranteed square container). Never use root.height or parent.height when parent is root — on beluga root.height exceeds root.maxSize by the letterbox margin, making all text disproportionately large.",
+    "canvas_arc_centre": {
+      "rule": "Canvas items at root level: use root.width/2 and root.height/2 as arc centre (panel centre). Canvas items inside faceBox: use width/2 and height/2 (own dimensions after anchors.fill: parent fills the square). Never use root.height/2 as the vertical centre for a rotated Canvas (e.g. rotation: -90) — the rotation pivot misaligns with the draw centre on non-square screens.",
+      "rotation_canvas_fix": "For Canvas items with rotation: -90, give the Canvas explicit square sizing (width: root.maxSize; height: root.maxSize; anchors.centerIn: parent) so the rotation pivot matches the arc draw centre on all screen shapes.",
+      "confirmed": "digital-noto-seconds, digital-shifted seconds arc — egg-shaped arc fixed by square canvas with anchors.centerIn"
+    },
+    "imperative_positioning_layout_timing": {
+      "rule": "Component.onCompleted fires before QML layout is complete. Item dimensions (width, height) are zero at that point. Any imperative x/y positioning that depends on item.width or item.height must use a one-shot Timer instead.",
+      "fix": "Timer { interval: 1; repeat: false; running: true; onTriggered: { /* positioning code */ } }",
+      "confirmed": [
+        "analog-rings — dot and text positions collapsed to (0,0) with Component.onCompleted",
+        "bold-hour-bebas-v2 — minute circle position wrong at startup",
+        "sporty-round-v2 — battery label orbit collapsed to panel centre"
+      ]
+    }
+  },
+  "shader_workflow": {
+    "overview": "Qt6 ShaderEffect no longer accepts inline GLSL strings. All shaders must be pre-compiled to .qsb binary format. The .frag GLSL 440 source is committed alongside the QML for transparency and future recompilation. The compiled .qsb is committed to watchfaces-img/.",
+    "frag_source_location": "Place the .frag file next to the watchface .qml file in the watchfaces directory.",
+    "qsb_location": "Place the compiled .qsb in watchfaces-img/. Reference it as ../watchfaces-img/filename.qsb from the ShaderEffect.",
+    "compile_command": "/usr/lib/qt6/bin/qsb --glsl \"100 es,120,150\" --hlsl 50 --msl 12 -o filename.qsb filename.frag",
+    "qsb_tool_path": "/usr/lib/qt6/bin/qsb (on the build server)",
+    "knockout_shader_template": {
+      "description": "Cuts a source layer using the inverse alpha of a mask layer. Used by humongous and sfos-style-three for digit knockout effect.",
+      "frag_source": "#version 440\n\nlayout(location = 0) in vec2 qt_TexCoord0;\nlayout(location = 0) out vec4 fragColor;\n\nlayout(std140, binding = 0) uniform buf {\n    mat4 qt_Matrix;\n    float qt_Opacity;\n};\n\nlayout(binding = 1) uniform sampler2D source;\nlayout(binding = 2) uniform sampler2D maskSource;\n\nvoid main(void) {\n    fragColor = texture(source, qt_TexCoord0) * (1.0 - texture(maskSource, qt_TexCoord0).a) * qt_Opacity;\n}",
+      "qml_usage": "layer.effect: ShaderEffect {\n    property variant source: layer2mask\n    fragmentShader: \"../watchfaces-img/filename.qsb\"\n}",
+      "architecture": "Rectangle { id: layer2mask; anchors.fill: parent; color: Qt.rgba(0,0,0,1); opacity: 0; layer.enabled: true }\nRectangle { id: _mask; anchors.fill: layer2mask; layer.enabled: true; layer.samplerName: \"maskSource\"\n    // mask content (Text items) here\n    layer.effect: ShaderEffect { property variant source: layer2mask; fragmentShader: \"../watchfaces-img/filename.qsb\" }\n}"
+    },
+    "beluga_knockout_split": {
+      "rule": "On beluga the full-panel layer2mask Rectangle must remain a direct root child (anchors.fill: parent) to prevent letterbox gaps. The _mask Rectangle and all Text mask items go inside faceBox OR at root level. Font sizes in the mask Text items use root.maxSize.",
+      "confirmed": "humongous, sfos-style-three — letterbox black rectangles appeared when layer2mask was constrained to faceBox"
+    }
+  },
+  "qt6_migration": {
+    "overview": "Confirmed patterns from the 2026-06 community watchface Qt6 refactor pass. 63 watchfaces refactored across one session.",
+    "commit_strategy": {
+      "rule": "Scope commits by coherent concern. Typical commit sequence: (1) SPDX header, (2) Qt6 import fixes, (3) Connections syntax, (4) Rotation origins, (5) Square geometry / faceBox, (6) layer cleanup, (7) dead code removal. Merge adjacent commits when the changeset is small. Never batch unrelated changes.",
+      "pr_title_format": "Refactor [watchface-name] watchface for Qt6",
+      "third_party_note": "For third-party watchfaces apply only conservative changes: SPDX format, import version drops, Connections syntax, Rotation origins, faceBox guard. Do not restructure design logic, remove author-defined z values, or change visual proportions unless they are demonstrably broken."
+    },
+    "spdx_conversion": {
+      "rule": "Replace block comment license headers with SPDX one-liner format. Keep original creation year. Fix deprecated handles. Split multi-author lines to one line each.",
+      "bsd_identifier": "BSD-3-Clause for faces originally under BSD license.",
+      "lgpl_identifier": "LGPL-2.1-or-later for all standard community faces.",
+      "jolla_permission": "sfos-style-* faces carry an explicit Jolla Oy permission notice. Preserve it verbatim as // lines immediately below the SPDX header."
+    },
+    "import_fixes": {
+      "version_drops": "Drop version suffix from all imports. `import QtQuick 2.15` → `import QtQuick`.",
+      "module_rename": "`QtGraphicalEffects 1.15` → `Qt5Compat.GraphicalEffects`.",
+      "dead_import_removal": "Remove org.asteroid.controls and org.asteroid.utils when their symbols are not used. Always grep the full file first — BluetoothStatus is in org.asteroid.utils, Icon is in org.asteroid.controls.",
+      "fontloader_name_readonly": "FontLoader.name is read-only in Qt6. If the font is installed system-wide, remove FontLoader entirely and reference the family name as a literal string. Confirmed: kitt.qml."
+    },
+    "connections_syntax": {
+      "qt5_wrong": "onTimeChanged: { ... }",
+      "qt6_correct": "function onTimeChanged() { ... }",
+      "target_placement": "target: is always the last property in a Connections block.",
+      "dead_connections": "A Connections block whose handler contains only `if (!visible) return;` and no other updates is dead code — remove it. Confirmed pattern in multiple faces using declarative hand angle bindings."
+    },
+    "rotation_origins": {
+      "rule": "Inside transform: Rotation, always reference the owning item's own id for origin. The parent keyword does not reliably resolve to the owning Item in Qt 5.15+ inside a transform block.",
+      "correct": "transform: Rotation { origin.x: hourSVG.width / 2; origin.y: hourSVG.height / 2; angle: ... }",
+      "wrong": "transform: Rotation { origin.x: parent.width / 2; origin.y: parent.height / 2; angle: ... }",
+      "confirmed": "analog-nort, analog-red-handed, analog-silly-walks, analog-weather-glow, digital-shifted, and many others"
+    },
+    "layer_cleanup": {
+      "layer_samples_remove": "layer.samples: N is always a no-op on AsteroidOS hardware. Remove from all items unconditionally. Emits a journal warning on every startup.",
+      "nightstand_layer_remove": "Never add layer.enabled, layer.samples, or layer.effect to the nightstandMode/dockMode Item. Causes GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT on MSM8226 hardware (sparrow, catfish class). Remove the entire layer block.",
+      "second_hand_60fps": "Do not add layer.enabled + DropShadow to a 60fps second hand Image. Forces full offscreen FBO recompose on every frame. Remove the layer block. The design exception: if a shadow is truly integral to the face aesthetic and the face is otherwise static (e.g. nightstand faces), the layer may be retained.",
+      "root_layer_remove": "layer.enabled + layer.effect DropShadow on the root Item composites the entire scene through an offscreen FBO on every frame. Rarely justified — remove unless the DropShadow is demonstrably visible and intentional design (confirmed static faces).",
+      "static_item_layer": "DropShadow on truly static Images (background plates, logos that never animate) that are part of a design is acceptable. Do not remove design-integral shadows from static items.",
+      "faceBox_layer_shadow": "faceBox.layer DropShadow (without samples) is acceptable as a design element providing a composite shadow over all face content."
+    },
+    "shapepath_parent_resolution": {
+      "rule": "Inside ShapePath and PathAngleArc, parent does not reliably resolve to the enclosing Shape item. Always reference the named Shape id for strokeWidth, startX, startY, centerX, centerY, radiusX, radiusY.",
+      "correct": "ShapePath { strokeWidth: chargeArc.height * 0.02 ... PathAngleArc { centerX: chargeArc.width/2 ... } }",
+      "wrong": "ShapePath { strokeWidth: parent.height * 0.02 ... PathAngleArc { centerX: parent.width/2 ... } }",
+      "confirmed": "analog-silver-swerver chargeArc, analog-weather-glow chargeArc, digital-charge-state, digital-namazu-no-henka, digital-weather-hrm-steps"
+    },
+    "canvas_font_weights": {
+      "rule": "Qt5 Canvas ignored unrecognised CSS weight tokens. Qt6 clamps them, causing all text to render at thin weight. Replace arbitrary numbers with standard CSS weight keywords.",
+      "mapping": {
+        "\"0 \"": "\"300 \" (Light)",
+        "\"14 \"": "\"300 \" (Light)",
+        "\"20 \"": "\"300 \" (Light)",
+        "\"22 \"": "\"300 \" (Light)",
+        "\"24 \"": "\"300 \" (Light)",
+        "\"42 \"": "\"500 \" (Medium)",
+        "\"50 \"": "\"500 \" (Medium)",
+        "\"64 \"": "\"bold\""
+      },
+      "confirmed": "digital-alternative-default-mosen, digital-alternative-mosen, retro-lcd (pending), sporty-round v1 styleName light → Light capitalisation"
+    },
+    "font_stylename_case": {
+      "rule": "Qt6 font style name matching is case-sensitive. 'light' does not match 'Light'. Always use correct capitalisation.",
+      "confirmed": "sporty-round, sporty-round-v2"
+    },
+    "qt6_text_bounding_box": {
+      "rule": "Qt6 text bounding boxes include additional ascender and descender space not present in Qt5. Visual glyphs sit higher within their reported bounds. Compensate with negative verticalCenterOffset or adjusted y positions. Measure delta in GIMP at target screen resolution.",
+      "measure_method": "Screenshot on device, open in GIMP, measure gap from reported item top to visible glyph top vs gap from visible glyph bottom to reported item bottom. Asymmetry reveals the bounding box padding. Nudge = half the asymmetry / screen_width expressed as a fraction.",
+      "confirmed_faces": [
+        "greenium — verticalCenterOffset: -parent.width * 0.15 (hour), +0.11 (minute)",
+        "analog-rings — fontBaselineNudge: maxSize * 0.011 applied to dot y positions",
+        "analog-classy-roman — topMargin adjustments on date and month"
+      ]
+    },
+    "z_value_audit": {
+      "rule": "z values that exactly mirror declaration order are redundant and should be removed. z values that intentionally override paint order must be preserved.",
+      "check_method": "List all items with z values in declaration order. If the z values ascend monotonically matching declaration order — all redundant. If any z value places an item above a later-declared item, or below an earlier-declared item — intentional, keep.",
+      "special_cases": [
+        "motivational-quotes — quote shadow layers require specific z ordering for the staggered shadow effect",
+        "analog-words-80s — hourOverlay z:1 above hourSVG z:0 despite SVG being declared after overlay",
+        "rainbow-uprising — centre Rectangle z:4 and text z:6 intentionally above Canvas z:3 bars"
+      ]
+    },
+    "dims_l_screen_constants": {
+      "rule": "Dims.l() uses screen-level constants evaluated at startup. It does NOT protect against non-square screens. Use Math.min(parent.width, parent.height) or the faceBox pattern for square-safe geometry.",
+      "confirmed": "analog-brawnish"
+    }
+  },
+  "context_properties": {
+    "note": "These are injected by asteroid-launcher at runtime via QQmlContext::setContextProperty. They are global identifiers in every watchface QML file. Never declare them as QML items. Never redeclare them as local properties.",
+    "wallClock": {
+      "type": "WallClock (QML object, context property)",
+      "description": "Provides the current time. wallClock.time is a JavaScript Date object.",
+      "never": "Never write WallClock { } as a QML item inside a watchface.",
+      "pathanglearc_binding_warning": "PathAngleArc sweepAngle bound directly to wallClock.time.getX() does not reliably update in Qt6 — the binding engine does not re-evaluate when the QDateTime object reference is unchanged. Use a stored root property updated via Connections.",
+      "time_expressions": {
+        "hours_24h": "wallClock.time.getHours()",
+        "hours_12h_string": "wallClock.time.toLocaleString(Qt.locale(), \"hh ap\").slice(0, 2)",
+        "minutes_int": "wallClock.time.getMinutes()",
+        "minutes_string": "wallClock.time.toLocaleString(Qt.locale(), \"mm\")",
+        "seconds_int": "wallClock.time.getSeconds()",
+        "am_pm": "wallClock.time.toLocaleString(Qt.locale(), \"ap\").toUpperCase()",
+        "day_of_week_short": "wallClock.time.toLocaleString(Qt.locale(), \"ddd\").slice(0, 3).toUpperCase()",
+        "day_number": "wallClock.time.toLocaleString(Qt.locale(), \"dd\").slice(0, 2).toUpperCase()",
+        "month_short": "wallClock.time.toLocaleString(Qt.locale(), \"MMM\").slice(0, 3).toUpperCase()",
+        "hour_minute_combined": "wallClock.time.toLocaleString(Qt.locale(), \"HH:mm\")"
+      }
+    },
+    "displayAmbient": {
+      "type": "bool (readonly, context property)",
+      "description": "True when the watch is in Always-on Display (AoD) mode.",
+      "never": "NEVER declare `property bool displayAmbient` or `readonly property bool displayAmbient` on root. Shadows the system property and permanently freezes AoD at false.",
+      "aod_behaviour": "In AoD: hide seconds hand (visible: !displayAmbient), hide toggle switches, reduce content to minimal time information."
+    },
+    "nightstand": {
+      "type": "bool (readonly, context property)",
+      "description": "True when the watch is on the charger in nightstand mode.",
+      "usage": "readonly property bool active: nightstand",
+      "never": "Never write Nightstand { } as an item. Never add layer.enabled to the nightstandMode Item."
+    },
+    "compositor": {
+      "type": "Compositor (QML object, context property)",
+      "description": "The system compositor. Connect to its signals to react to AoD transitions.",
+      "connections_pattern": "Connections {\n    function onDisplayAmbientEntered() { /* deactivate sensors */ }\n    function onDisplayAmbientLeft() { /* reactivate */ }\n    target: compositor\n}"
+    },
+    "use12H": {
+      "type": "ConfigurationValue (context property)",
+      "usage": "use12H.value — boolean. True when the user has selected 12-hour time format."
+    }
+  },
+  "feature_modules": {
+    "smooth_second_hand": {
+      "description": "16ms Timer drives sub-second rotation for smooth sweep. Connections updates hour and minute at their natural frequency.",
+      "timer": "Timer {\n    interval: 16\n    repeat: true\n    running: !displayAmbient && visible\n    onTriggered: {\n        var now = new Date();\n        secondRot.angle = (now.getSeconds() * 1000 + now.getMilliseconds()) * 6 / 1000;\n    }\n}",
+      "svg_offset_note": "Some second hand SVGs have a built-in artwork offset (e.g. +6 degrees). Preserve the offset in the Timer formula. Always add a comment explaining the offset value."
+    },
+    "nightstand_charge_arc": {
+      "description": "Segmented arc showing battery charge level in nightstand mode.",
+      "layer_warning": "NEVER add layer.enabled or layer.samples to the nightstandMode Item or its Shape/ShapePath. Causes GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT on MSM8226.",
+      "shapepath_rule": "Always reference the Shape id (e.g. chargeArc) inside ShapePath and PathAngleArc — not parent.",
+      "template": "Item {\n    id: nightstandMode\n    readonly property bool active: nightstand\n    anchors.fill: parent\n    visible: nightstandMode.active\n\n    Shape {\n        id: chargeArc\n        property real angle: batteryChargePercentage.percent * 360 / 100\n        property real arcStrokeWidth: 0.03\n        property real scalefactor: 0.45 - (arcStrokeWidth / 2)\n        width: root.maxSize\n        height: root.maxSize\n        anchors.centerIn: parent\n\n        ShapePath {\n            strokeColor: \"green\"\n            strokeWidth: chargeArc.height * chargeArc.arcStrokeWidth\n            fillColor: \"transparent\"\n            capStyle: ShapePath.RoundCap\n            startX: chargeArc.width / 2\n            startY: chargeArc.height * (0.5 - chargeArc.scalefactor)\n\n            PathAngleArc {\n                centerX: chargeArc.width / 2\n                centerY: chargeArc.height / 2\n                radiusX: chargeArc.scalefactor * chargeArc.width\n                radiusY: chargeArc.scalefactor * chargeArc.height\n                startAngle: -90\n                sweepAngle: chargeArc.angle\n                moveToStart: false\n            }\n        }\n    }\n}",
+      "beluga_note": "Give chargeArc explicit square sizing (width: root.maxSize; height: root.maxSize; anchors.centerIn: parent) rather than anchors.fill: parent against nightstandMode. nightstandMode fills the full non-square panel; anchors.fill would make radiusX != radiusY on beluga."
+    },
+    "battery_bar": {
+      "description": "Simple linear battery level bar.",
+      "template": "MceBatteryLevel { id: batteryChargePercentage }\nRectangle {\n    width: parent.width * batteryChargePercentage.percent / 100\n    height: root.maxSize * 0.02\n    color: batteryChargePercentage.percent < 30 ? \"red\" : \"green\"\n}"
+    },
+    "sub_dial": {
+      "description": "Small circular sub-dial with arc progress and text display. Used for day-of-week, month, and battery in analog-goldie/silver-swerver pattern.",
+      "canvas_rule": "Canvas sub-dial arcs use requestPaint triggered by a property change (onDayChanged, onMonthChanged, onValueChanged). Canvas drawing math uses parent.width/height (own Canvas dimensions filling the sub-dial Item).",
+      "shapepath_arc_alternative": "PathAngleArc inside Shape is the declarative alternative to Canvas for sub-dial arcs. sweepAngle must use a stored root property updated via Connections — direct wallClock.time.getX() binding is unreliable in Qt6."
+    },
+    "weather": {
+      "config_values": [
+        "ConfigurationValue { id: owmId; key: \"/org/asteroidos/weather/day0/id\"; defaultValue: 0 }",
+        "ConfigurationValue { id: maxTemp; key: \"/org/asteroidos/weather/day0/max-temp\"; defaultValue: 0 }",
+        "ConfigurationValue { id: useFahrenheit; key: \"/org/asteroidos/settings/use-fahrenheit\"; defaultValue: false }"
+      ],
+      "synced_guard": "property bool weatherSynced: maxTemp.value != 0",
+      "temperature_function": "function kelvinToTemperatureString(kelvin) {\n    var celsius = (kelvin - 273);\n    if (!useFahrenheit.value)\n        return celsius + \"°\";\n    else\n        return Math.round(((celsius) * 9 / 5) + 32) + \"°\";\n}",
+      "icon_usage": "Icon { name: WeatherIcons.getIconName(owmId.value); visible: weatherSynced }",
+      "temp_display": "text: weatherSynced ? kelvinToTemperatureString(maxTemp.value) : \"NO\\nWEATHER\\nDATA\""
+    },
+    "hrm": {
+      "required_imports": [
+        "import QtSensors"
+      ],
+      "root_properties": [
+        "property int hrmBpm: 0",
+        "property bool hrmSensorActive: false",
+        "property var hrmBpmTime: wallClock.time"
+      ],
+      "sensor": "HrmSensor {\n    active: !displayAmbient && hrmSensorActive\n    onReadingChanged: {\n        root.hrmBpm = reading.bpm;\n        root.hrmBpmTime = wallClock.time;\n    }\n}",
+      "aod_deactivate": "function onDisplayAmbientEntered() { hrmSensorActive = false; }",
+      "display_value": "text: (hrmBpm ? hrmBpm : \"---\")"
+    },
+    "bluetooth": {
+      "required_imports": [
+        "import org.asteroid.utils"
+      ],
+      "sensor": "BluetoothStatus { id: btStatus }",
+      "toggle": "onClicked: btStatus.powered = !btStatus.powered",
+      "icon_name": "name: btStatus.powered && btStatus.connected ? \"ios-bluetooth-connected\" : \"ios-bluetooth\"",
+      "connected_color": "border.color: btStatus.connected ? \"#1E96FC\" : \"#A2D6F9\"",
+      "visibility": "visible: (!displayAmbient || btStatus.powered) && !nightstandMode.active"
+    },
+    "wifi": {
+      "required_imports": [
+        "import Connman"
+      ],
+      "sensor": "NetworkTechnology { id: wifiStatus; path: \"/net/connman/technology/wifi\" }",
+      "toggle": "onClicked: wifiStatus.powered = !wifiStatus.powered",
+      "visibility": "visible: (!displayAmbient || wifiStatus.powered) && !nightstandMode.active"
+    },
+    "step_counter": {
+      "required_imports": [
+        "import QtSensors"
+      ],
+      "root_property": "property int stepCount: 0",
+      "sensor": "StepCounterSensor {\n    id: stepCounter\n    active: !displayAmbient\n    onReadingChanged: root.stepCount = reading.stepCount\n}",
+      "display": "text: stepCount"
+    }
+  },
+  "code_style": {
+    "indentation": "4 spaces. No tabs.",
+    "id_first": "id: is always the first property declared inside any Item.",
+    "property_order": "id, then readonly/property declarations, then width/height, then anchors, then visual properties (color, opacity, visible), then children.",
+    "font_block_required": "Always group font properties inside a font {} block. Never use dot-notation (font.family, font.pixelSize) on separate lines.",
+    "anchors_block_required": "Always group anchors inside an anchors {} block when there are two or more anchor properties. Exception: anchors.fill: parent and anchors.centerIn: parent are acceptable as single lines.",
+    "connections_target_last": "In all Connections blocks the target: property is always declared last.",
+    "comment_format": "// line comments only. No block /* */ comments anywhere in the file. One // comment line directly above the Item it describes.",
+    "no_blank_comment_lines": "Do not insert blank // lines in comment blocks. qmlformat strips them.",
+    "z_values": "Only declare z: when intentionally overriding paint order. Do not add z values that mirror declaration order.",
+    "no_column_alignment": "Do not pad property values into columns.",
+    "ternary_single_line": "All ternary expressions on a single line. Newline before the colon silently evaluates only the first branch in Qt 5.15.",
+    "no_em_dashes": "No em dashes in comments or string values — LLM tell-tale.",
+    "property_fractions": "All geometry, sizing, and font values expressed as fractions of a parent or root dimension. Never hardcode pixel values.",
+    "trailing_whitespace": "None. Geany is the recommended editor. Kate introduces trailing whitespace and corrupts continuation line indentation — always cp/rsync rather than Save As when using Kate."
+  },
+  "platform_notes": {
+    "test_devices": {
+      "catfish": "TicWatch Pro — 400x400px square. Qt5/Qt6 reference device. 9/10 performance.",
+      "beluga": "OPPO Watch 46mm — 402x476px rectangular. Primary non-square test target. All geometry fixes must be verified here.",
+      "square_vs_rect": "If a face looks correct on catfish but wrong on beluga, the root cause is almost always parent.height vs parent.width mismatch somewhere in the geometry."
+    },
+    "qt5_rollback": "Users on AsteroidOS 2.1 (Qt5) should not pull the community watchfaces repo after the Qt6 refactor pass. Last Qt5-compatible commit: d493587. Rollback command: git reset --hard d493587",
+    "deploy_workflow": "scp source to build server devtool workspace → bitbake → scp IPK to watch → opkg force-reinstall → systemctl restart user@1000",
+    "devtool_stale_workspace": "devtool status is canonical for auditing active workspaces. Stale workspaces silently override recipes. Run devtool reset <pkg> to clear.",
+    "arc_watchface_note": "The arc watchface has been reworked for the watchface settings feature (PR AsteroidOS/unofficial-watchfaces#260): a lowercase arc.qml frontend selects one of 8 designs from a dconf index and exposes a settingsPage that cycles designs on tap; the base and 7 variant files moved into an arc/ subfolder. This established the multi-design structure rule, see watchface_settings_feature below.",
+    "retro_lcd_note": "retro-lcd is excluded pending license clearance from the original author Huntereb (Huntereb@lewd.pics)."
+  },
+  "git_workflow": {
+    "branch_naming": "qt6-[watchface-name]",
+    "commit_messages": "Plain prose paragraphs using multiple -m flags. Never bullet lists. No arbitrary line-width wrapping. No em dashes.",
+    "force_push": "git push --force-with-lease for cleaned branches.",
+    "moving_commits_to_new_branch": "git branch new-branch-name (creates at current HEAD)\ngit reset --hard HEAD~N (moves current branch back N commits)\ngit checkout new-branch-name\ngit push origin new-branch-name",
+    "rebase_on_upstream": "git fetch upstream\ngit checkout branch-name\ngit rebase upstream/main\ngit push origin branch-name --force-with-lease",
+    "pr_two_eyes": "All community watchface PRs tagged for review. For third-party watchfaces always request review from the original author if they are a project contributor. For own watchfaces in the unofficial repo, self-merge is permitted.",
+    "pr_message_style": "No arbitrary line breaks in flowing prose. New line only for genuine paragraph breaks, bullet points, or headings."
+  },
+  "watchface_settings_feature": {
+    "overview": "A watchface can expose per-face settings that the on-device store surfaces on a long press (settings PR AsteroidOS/asteroid-settings#145). The face declares 'property Component settingsPage: <a page component>'. The store detects it via previewQml.item.settingsPage and pushes it in a WatchfaceSettingsContainer. Config is dconf-backed via ConfigurationValue for now (QSettings under maintainer discussion).",
+    "cycler_pattern": "For a face with a fixed set of designs, the settingsPage shows a live preview and advances to the next design on tap: onClicked: cfg.value = (cfg.value + 1) % designs.length. The frontend Loader and the settings preview both read the same ConfigurationValue, so the homescreen face and preview update together. arc is the reference.",
+    "multi_design_structure_rule": "Only the lowercase <name>.qml frontend sits directly in usr/share/asteroid-launcher/watchfaces/. A multi-design face keeps its base and variant .qml files in a <name>/ subfolder (e.g. arc/Arc.qml, arc/Arc-black-pie-seconds.qml). The frontend loads them by relative path (source: '<name>/Variant.qml'). Reason: the store lists faces by top-level *.qml only (non-recursive), so variant/component files never appear as bogus faces, while a bare dev-pushed qml still shows. Faces to migrate to this pattern: analog-nihil (currently split into analog-nihil-dark and analog-nihil-light dirs) and sporty-round (sporty-round + sporty-round-v2). sfos-style-one/two/three are genuinely distinct faces, leave them.",
+    "preview_note": "The store prefers cached preview PNGs; a face with no PNG forces the selector to live-load its full QML, which is slow. Planned (separate PR): generate the device-size preview via grabToImage during install and a first-run pass for stock faces, dropping the shipped multi-size preview PNGs (Kido tech debt)."
+  }
+}

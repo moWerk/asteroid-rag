@@ -1,0 +1,1015 @@
+{
+ "platform_and_build": {
+  "wallclock": {
+   "enabled_binding": "WallClock { enabled: desktop.visible } — merged in asteroid-launcher MainScreen.qml. Stops clock ticking behind active apps. Verified with dodoradio: desktop.visible is false when app is foregrounded, true during peek-to-homescreen and whenever launcher surface is active.",
+   "connections_guard_obsolete": "The if (!visible) return guard in Connections { target: wallClock } blocks is now redundant and must be removed from all watchfaces.",
+   "binding_reliability": "wallClock.time.getX() inside PathAngleArc sweepAngle bindings are unreliable — the QML binding engine does not re-evaluate when the QDateTime object reference does not change. Use stored properties fed from Connections."
+  },
+  "spdx_conversion": {
+   "bsd_identifier": "BSD-3-Clause",
+   "lgpl_identifier": "LGPL-2.1-or-later",
+   "format": "// SPDX-FileCopyrightText: YEAR Name <contact>",
+   "duplicate_author_rule": "If the same author has two copyright entries keep only the oldest year.",
+   "multi_author_line": "Expand single-line multi-author entries to one SPDX line per author each with the same year.",
+   "line_order": "All FileCopyrightText lines newest to oldest, then SPDX-License-Identifier last with no blank line before it."
+  },
+  "build_system": {
+   "recipe_format": "Yocto/BitBake .bb files",
+   "meta_layer": "meta-asteroid-community",
+   "recipe_location": "recipe/ subdirectory in the app repo (moWerk convention), or recipes-asteroid/appname/ folder in meta-asteroid-community",
+   "devtool_workspace_recipe": "devtool modify <appname> places the workspace recipe at workspace/sources/<appname>/recipe/<appname>.bb — this is the app's own repo recipe/ directory checked out by devtool. Editing meta-asteroid-community has no effect during an active devtool session because the workspace layer has higher priority. devtool finish writes changes back to meta-asteroid-community and discards the workspace override.",
+   "pv_format": "PV = '+git${SRCPV}' is the historical community convention but is known broken — see recipe_style_guide.json pv_git_srcpv_broken. Use an explicit linear PV = '2.x.0' in all new recipes.",
+   "srcrev": "AUTOREV for development, pin to exact commit hash for releases. devtool reset <appname> is required before rebuilding from pinned SRCREV to discard any workspace source override.",
+   "resource_registration": "resources.qrc must list all QML and asset files. Use alias attribute to map moved asset paths without changing QML source strings: <file alias='name.svg'>../assets/name.svg</file>",
+   "community_app_DEPENDS": "Always include: qml-asteroid qttools-native qtdeclarative-native. Add qtsensors when using accelerometer, compass, or barometer sensors. Add nemo-keepalive when calling DisplayBlanking.preventBlanking. Add asteroid-generate-desktop-native when CMakeLists.txt calls generate_desktop() — this is the canonical AsteroidOS desktop file pattern. See recipe_style_guide.json desktop_file_canonical_pattern for both canonical and alternative approaches.",
+   "generate_desktop_native": "asteroid-generate-desktop-native must be in DEPENDS:append when the app CMakeLists.txt calls generate_desktop(). Community recipes are NOT restricted from using generate_desktop() — they simply need this dep declared explicitly. Absence causes do_install failure: cmake cannot find appname.desktop. Confirmed: MagneFire clarification 2026-05 during asteroid-toolwatch packaging.",
+   "desktop_file_approach": "The canonical AsteroidOS desktop file pattern is .desktop.template + i18n/appname.desktop.h + generate_desktop() + asteroid-generate-desktop-native in DEPENDS. A plain .desktop file with install(FILES) also works but is a divergence from canon. Full documentation in recipe_style_guide.json desktop_file_canonical_pattern.",
+   "optioncycler_title_to_text": "OptionCycler property renamed from title: to text: in qml-asteroid 2.1 — a hard breaking change. Any app using title: on OptionCycler will fail to start silently with no useful console output. Callers must use text: instead.",
+   "FILES_PN": "Use FILES:${PN}:append (not +=) with a leading space. Required entries: ${libdir} (covers the installed .so), /usr/share/translations/ when build_translations is active, /usr/share/icons/asteroid/appname.svg when shipping an app icon SVG.",
+   "so_file_must_be_in_FILES": "${libdir} glob must appear in FILES:${PN}:append — /usr/lib/asteroid-appname.so is NOT automatically shipped. Omitting it causes do_package QA error installed-vs-shipped on clean builds. sstate cache may mask this locally.",
+   "yocto_license_checksum": "Adding a copyright line changes LIC_FILES_CHKSUM md5 — update to the new md5 printed in the do_populate_lic error.",
+   "recipe_style_guide": {
+    "append_operator": "Always use VAR:append = \" value\" (with leading space). Never use VAR += in new recipes. Applies to ALL variables: DEPENDS, FILES, RDEPENDS, SRC_URI.",
+    "variable_order": "SUMMARY, HOMEPAGE, LICENSE, LIC_FILES_CHKSUM, then SRC_URI/SRCREV/PV/S, then inherit, then DEPENDS:append, then do_install:append, then FILES:${PN}:append",
+    "no_empty_assignments": "Never set RDEPENDS or any variable to empty string — remove the line entirely",
+    "oelint_adv": "pip install oelint-adv — run on all recipes before PR. MagneFire planning CI integration for meta-asteroid-community.",
+    "branch_main": "moWerk community repos use branch=main not branch=master in SRC_URI",
+    "full_reference": "See recipe_style_guide.json for complete Yocto recipe style rules, oelint conventions, and AsteroidOS-specific packaging patterns."
+   },
+   "qt6_llvm_clang_sysroot_conflict": {
+    "summary": "When meta-clang is present (pulled in by the 2.2 branch for GKI/aurora device support), clang-native and oe-core's llvm-native both install /usr/include/llvm-c/lto.h and Remarks.h into native sysroots, causing do_prepare_recipe_sysroot to abort. The fix is two lines that make clang-native satisfy all llvm-native requests: 'PROVIDES:append:pn-clang-native = \" llvm-native\"' and 'PREFERRED_PROVIDER_llvm-native = \"clang-native\"'. These are now in meta-asteroid conf/distro/asteroid.conf (merged 2026-06). The fix was previously only in conf/machine/include/hybris-gki-watch.inc (aurora-specific). Any new Qt6 build on 2.2+ with an up-to-date meta-asteroid will have this fix automatically.",
+    "affected_build_versions": "AsteroidOS 2.2, meta-qt6 branch 6.11, meta-clang walnascar, oe-core walnascar",
+    "symptom": "ERROR: qttools-native do_prepare_recipe_sysroot: The file /usr/include/llvm-c/lto.h is installed by both llvm-native and clang-native, aborting",
+    "root_cause": "meta-clang is sourced for all 2.2 builds via prepare-build.sh (PR #344), but the llvm deduplication fix was only applied to the aurora machine config, not the distro config",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "podman_yocto_build_setup": {
+    "summary": "AsteroidOS Qt6 builds can run inside the asteroidos-toolchain Podman container on Arch Linux (Omarchy). Bind-mount the Yocto tree at /asteroid, W541 sstate at /host-sstate (ro), and downloads at /host-downloads (rw). Key local.conf settings for the P14s setup: BB_NUMBER_THREADS=14, PARALLEL_MAKE=-j8, TMPDIR=${TOPDIR}/tmp-qt6, SSTATE_DIR=/asteroid/build/sstate-cache, DL_DIR=/host-downloads, SSTATE_MIRRORS pointing at both the W541 mirror and the AsteroidOS nightly cache. Performance sweet spot: --cpus=14, PARALLEL_MAKE=-j8, nice -n 3. -j8 caps per-task parallelism to prevent OOM during simultaneous LLVM/Rust/clang compilation phases (three of these overlapping at -j14 consumed 26GB RAM on 28GB system).",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "yocto_sstate_aurora_masks_bugs": {
+    "summary": "The AsteroidOS nightly sstate cache served from release.asteroidos.org can hide build-system bugs. If a package like qttools-native was built cleanly by the CI (with a different host configuration), its sstate hash matches enough to be used from cache, bypassing the local conflict that would otherwise abort the build. This means builds that rely heavily on the nightly sstate may succeed while a clean local build on the same layer set fails. Always validate with a SSTATE_MIRRORS-only build (no nightly) when investigating new-device port build errors.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "bbmask_too_aggressive_warning": {
+    "summary": "BBMASK on an entire recipe directory (e.g. 'meta/recipes-devtools/llvm/llvm') removes the package from the entire build graph. Other packages that depend on llvm-native (mesa -> virtual/egl-native -> llvm-native) will fail with 'Nothing PROVIDES llvm-native'. BBMASK is correct for hiding entire feature layers; it is NOT the right tool for resolving file-conflict between two providers of the same headers. Use PROVIDES + PREFERRED_PROVIDER instead.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "kernel_work_shared_path": {
+    "summary": "In Yocto, the kernel source tree is shared across recipes via WORKDIR/git which is a symlink to build/tmp-qtX/work-shared/<machine>/kernel-source/. The symlink target uses the container-internal /asteroid path; resolve to the host path as ~/Git/asteroid/build/tmp-qtX/work-shared/<machine>/kernel-source/. This is the live patched source during do_patch. Reject files (.rej) from failed patch applications appear here and can be inspected for context mismatches. bitbake -c cleansstate virtual/kernel clears the per-recipe work dir but work-shared persists across builds — the kernel source accumulates patches from successful patch tasks.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "patch_fuzz_qa_vs_insane_skip": {
+    "summary": "The patch-fuzz quality check fires when a kernel patch applies with context offset or fuzz. This check lives in patch.bbclass and is controlled by ERROR_QA / WARN_QA, NOT by INSANE_SKIP (which only covers insane.bbclass checks). INSANE_SKIP:linux-device += \"patch-fuzz\" is silently ineffective. The correct suppression during development is 'ERROR_QA:remove = \"patch-fuzz\"' in local.conf. The correct permanent fix is to refresh the affected patches with 'devtool modify <kernel-recipe>' followed by 'devtool finish --force-patch-refresh <kernel-recipe> <layer_path>'.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "oe_core_257_systemd_freeze": {
+    "summary": "oe-core walnascar commit 11d583e4ff and forward (systemd 257.6) introduced a linker failure in systemd-systemctl-native. Pin oe-core to the commit just before this: 'git checkout -b local-pre-257.6 11d583e4ff^' in src/oe-core. This is a temporary workaround pending an upstream fix. The symptom is a do_compile failure in systemd-systemctl-native early in the build.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "local_file_unpack_destination_varies_per_recipe": {
+    "summary": "Local file:// SRC_URI entries do NOT always unpack to ${WORKDIR} or even to whatever ${UNPACKDIR} the recipe appears to set — some recipes' actual unpack destination (e.g. a sources-unpack/ subdirectory) only becomes clear by reading the real do_unpack log (temp/log.do_unpack.<pid> in the recipe's work dir). Confirmed case: a do_install:append referencing ${WORKDIR}/somefile.bin failed with 'No such file' even though the file was correctly fetched, because the actual recipe's true unpack destination differed from the naive assumption. Always check the do_unpack log directly rather than assuming WORKDIR or UNPACKDIR blindly, especially when porting an install block between recipes that may set S/UNPACKDIR differently.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "cleansstate_is_not_a_universal_fix": {
+    "summary": "When a new SRC_URI file or do_install change doesn't seem to take effect after a rebuild, the instinct to reach for 'bitbake recipe -c cleansstate' is sometimes right but is not universally the fix — confirmed real-world case where the actual root cause was an edit saved to the WRONG copy of a same-named file (an editor had a stale buffer open on a different path than the one bitbake actually parses, e.g. the synced build-tree copy vs. the source-of-truth git checkout). Before escalating to sstate theories, grep the exact file path bitbake is actually parsing (confirm via 'bitbake -e recipe | grep ^FILE=' or similar) for the content you expect to find. Also verify both the .ipk's timestamp in the deploy feed AND the actual content checksum inside packages-split/ — a bitbake task summary saying 'didn't need to be rerun' can be true while stale content is still what ultimately gets packaged, if an upstream task in the chain (e.g. do_rootfs's package selection) didn't get invalidated for an unrelated reason.",
+    "domain": "build",
+    "confidence": "confirmed"
+   },
+   "qml_asteroid_ecm_module_path": {
+    "summary": "qml-asteroid and other ECM/KDE-CMake AsteroidOS components must keep ${ECM_MODULE_PATH} in the CMAKE_MODULE_PATH assignment: set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake). ${ECM_MODULE_PATH} is what adds ECM's kde-modules/ dir (where KDEInstallDirs.cmake lives) to the module search path.",
+    "symptom": "CMake configure cannot find a module / include(KDEInstallDirs) errors 'module not found' even though extra-cmake-modules is installed.",
+    "root_cause": "Removing ${ECM_MODULE_PATH} from the set(CMAKE_MODULE_PATH ...) line drops ECM's kde-modules/ from the search path, so include(KDEInstallDirs) has nowhere to resolve the file from.",
+    "diagnostic_note": "Easy to miss: a diff can carry this set() line as UNCHANGED context (dodo's case was qml-asteroid commit 08fbdb4), so the break reads as an omission, not a visible edit. First thing to check when a KDE/ECM-based AsteroidOS build reports KDEInstallDirs 'module not found'.",
+    "reference": "https://github.com/AsteroidOS/qml-asteroid/blob/master/CMakeLists.txt",
+    "domain": "build",
+    "confidence": "confirmed - dodo hit it 2026-07, found the line himself after moWerk's hints"
+   },
+   "devtool_reset_removes_deployed_ipk": "Building one app ipk via `devtool modify -n <recipe> <srctree>` then `bitbake <recipe>` writes the ipk under TMPDIR/deploy/ipk, but the trailing `devtool reset -a` cleans the workspace and its freshly-deployed ipk vanishes, so a following stage stages a STALE ipk. Copy the built ipk OUT to a persistent path BEFORE `devtool reset`. Verify freshness by mtime AND size, never a bare 'IPK OK' exists-check: a 161K Jul-26 ipk shadowed the fresh 335K one and fooled a whole beluga test round (2026-08-05). TMPDIR may be tmp-qt6 OR tmp-qt6-wf per machine; a stale ipk in the other tmpdir is a classic decoy.",
+   "launcher_qml_errors_in_full_journal": "Runtime QML errors from the homescreen launcher (and booster-launched settings) land in the FULL system journal (journalctl -b), NOT journalctl --user. Grep the full journal for the face path or 'is not installed' / '.qml:' to find why a face renders blank. Confirmed beluga 2026-08-05: 'asteroid-launcher[PID]: file://.../face.qml:LINE: module ... is not installed' appears only in the full journal.",
+   "session_restart_granularity": "Two restart scopes on-device: `systemctl --user restart booster-asteroid-qt6` bounces only the qt6 app booster (affects the NEXT launch of booster apps like asteroid-settings); `systemctl restart user@1000` restarts the whole ceres user session including the homescreen launcher. asteroid-settings is booster-launched (invoker --type=asteroid-qt6 /usr/lib/asteroid-settings.so; the /usr/bin entry is a ~90-byte wrapper) and its QML is qrc-compiled INTO the .so, so every QML tweak needs a full bitbake (sstate keeps the C++ warm: only qml recompile + relink). A new package providing a QML module needs the FULL session restart, not just the booster, for the running launcher to pick it up.",
+   "install_via_rig_adb_when_wifi_drops": "A dev watch reachable by SSH over wifi/mDNS (e.g. 'beluga') stops resolving when it sleeps. The same device on the docking-bay rig stays reachable via USB adb by serial (belugaxl on the rig), so install/flash through the rig adb (always -s <serial>) instead of SSH, wifi-independent. opkg install and `systemctl restart user@1000` all work over `adb -s <serial> shell`.",
+   "qmlformat_ci_lint": "unofficial-watchfaces (and sibling AsteroidOS repos) run a qmlformat lint in CI (MagneFire/qml-format-lint-action@v2, a 'Check QML files' step). Any added or changed .qml that qmlformat would reformat FAILS the Lint job. Run `qmlformat` on every new/changed QML before pushing and verify clean with `diff -q <f> <(qmlformat <f>)`. It enforces canonical member ordering (properties before signals before functions), blank lines between member groups, and multi-line empty function bodies. Fold the format fix into the commit that introduced the file, not a separate 'fix lint' commit. Confirmed: PR #261 (2026-08-05) failed on two fake-component stubs; qmlformat -i + amend fixed it.",
+   "qmlformat_strips_for_loop_initializers": "qmlformat (Qt 6.11, 'qmlformat 1.0') SILENTLY REWRITES `for (i = 0; ...)` to `for (; ...)` when the counter was declared separately (`var i, fn`), dropping the initializer. The loop then never runs (undefined < count is false) and the change is SEMANTIC, not cosmetic. CI cannot catch it because the broken form IS qmlformat's output. Confirmed 2026-08-06: running qmlformat on asteroid-settings WallpaperPage mangled three pre-existing loops and shipped an empty wallpaper grid to the device. The declaration form `for (var i = 0; ...)` is preserved correctly - always write loops that way in QML, and diff qmlformat's output for semantic changes before committing, especially on files you did not author.",
+   "rootless_podman_cgroup_parent_lives_in_the_user_hierarchy": "`--cgroup-parent=build.slice` on ROOTLESS podman places the container under the USER systemd hierarchy, so verify with `systemctl --user show build.slice -p MemoryCurrent`, not `systemctl show build.slice` (the system slice stays empty and looks like the flag failed). The podman CLI process itself remains in the invoking shell's scope - that is normal and not evidence of failure. Both a system and a user build.slice exist on the p14s with the same 21G cap. Also note `pgrep -f bitbake` matches EARLYOOM ITSELF, whose --prefer regex contains the word, so process lookups by that pattern return the wrong PID."
+  },
+  "file_structure": {
+   "convention": "src/ for all QML and C++ sources + resources.qrc. assets/ for SVGs and media. recipe/ for .bb file. Root contains CMakeLists.txt, LICENSE, README.md, desktop file or desktop template, app icon SVG.",
+   "qrc_alias_pattern": "When assets live in assets/, reference from src/resources.qrc using relative path + alias so QML source strings require no changes: <file alias='ship.svg'>../assets/ship.svg</file>"
+  },
+  "runtime_imports": {
+   "qml_context_properties": {
+    "pattern": "C++ code can expose objects and properties to QML via QQmlContext::setContextProperty(). These become global identifiers in QML scope without import statement. Common in system components like ShutdownScreen where shutdownScreen object and shutdownMode string are exposed from C++.",
+    "example": "window->setContextProperty('shutdownScreen', this); window->setContextProperty('shutdownMode', shutdownMode); — makes shutdownScreen.windowVisible and shutdownMode directly accessible in QML",
+    "sizing_pattern": "When C++ creates a window with specific geometry, pass screen size as context property: window->setContextProperty('initialSize', QGuiApplication::primaryScreen()->size()); — QML root should use width: initialSize.width and height: initialSize.height instead of parent.width/parent.height",
+    "domain": "platform",
+    "confidence": "confirmed"
+   },
+   "qt_version": "Qt 5.15 (production). Qt 6.11 migration in progress on master branch as of 2026-05. sparrow image boots to homescreen under Qt 6.11 with fixes applied.",
+   "qml_version": "import QtQuick 2.15 — project standard as of 2026. Earlier 2.9 entries in existing files are legacy. 2.9 caused real silent failures including Behavior timing and font resolution differences. Always use 2.15 for new files.",
+   "qtquick_215_exception": "REMOVED — 2.15 is now baseline, no exception needed.",
+   "multimedia": "import QtMultimedia 5.8",
+   "sensors": "import QtSensors 5.11",
+   "shapes": "import QtQuick.Shapes 1.15",
+   "configuration": "Nemo.Configuration 1.0 — ConfigurationValue for persistent settings with cross-app reactivity",
+   "haptics": "Nemo.Ngf 1.0 — NonGraphicalFeedback, event: 'press'",
+   "available_ngfd_events": [
+    "press",
+    "notif_normal",
+    "notif_strong",
+    "alarm",
+    "ringtone",
+    "notif_silent"
+   ],
+   "keepalive": "Nemo.KeepAlive 1.1 — DisplayBlanking.preventBlanking",
+   "dbus": "Nemo.DBus 2.0",
+   "controls": "org.asteroid.controls 1.0",
+   "utils": "org.asteroid.utils 1.0 — DeviceSpecs singleton",
+   "custom_singleton": "import moWerk.FileHelper 1.0 — pattern for registering project-local C++ singletons via qmlRegisterSingletonType"
+  },
+  "qt6_migration": {
+   "glyph_cache_broken_fbo_text_cost": "Adreno 2xx-6xx and Mali-4xx GPUs trigger Qt's workaround_brokenFBOReadBack (auto-detected by GL_RENDERER in qopenglcontext.cpp, and force-set fleet-wide via QT_ENABLE_GLYPH_CACHE_WORKAROUND=true). This routes the NATIVE-text glyph cache (qopengltextureglyphcache.cpp) onto a CPU path: every new glyph is rasterized on the CPU into a QImage and uploaded individually, and cache growth re-uploads on the CPU. So text-heavy scenes, transitions, cold app startup, and text scaled past the distance-field size range (which falls back to native) are CPU-bound with the GPU idle. Distance-field text avoids it (size-independent, GPU-scaled). Mitigation: keep scaled/animated text inside the distance-field range (scale transform, not font.pixelSize animation; QT_DISTANCEFIELD_DEFAULT_BASEFONTSIZE/SCALE can widen it). Confirmed on nemo (Adreno 305) from Qt 6.11 source + device.",
+   "wayland_composition_tax": "In-process compositor surfaces (watchface, panels, launcher grid, quickpanel, notifications) render once per frame; separate-client apps (settings, weather, etc.) render twice (app + compositor re-composite) and, on round screens, additionally pass through a per-frame CircleMaskShader FBO. Buffer sharing itself is hardware zero-copy (Qt6 WaylandEgl HW integration + /dev/ion gralloc). This fixed per-frame tax is why app-content scrolling stutters on weak SoCs while in-compositor panels stay smooth. Confirmed on nemo.",
+   "audio_soundeffect_chop_and_drain": "The QtMultimedia media backend plugin is NOT installed on these images, so QMediaPlayer is unavailable; only QSoundEffect/QAudioSink exists. On Qt6 QSoundEffect plays the ~256ms notification.wav chopped into fragments AND holds a persistent PulseAudio stream for the launcher's whole life (sink never suspends = standby battery drain). Routing UI sounds through ngfd's GStreamer sink (a full pipeline) plays gapless and releases the stream. Confirmed by ear on beluga.",
+   "status": "Active migration as of 2026-05. Qt 6.11 image confirmed booting on sparrow with all fixes in this section applied. Known blockers: GL framebuffer incomplete 0x8cd6 on MSM8226 GPU causing render stuttering, QWlExtendedSurface replacement protocol not yet implemented.",
+   "mkcal_timed_support": "gber/mkcal qt6 branch (246dad7) fails to compile with TIMED_SUPPORT enabled because alarmhandler.cpp calls QDateTime::toTime_t() which was removed in Qt6. Fix: add -DTIMED_SUPPORT=OFF to EXTRA_OECMAKE and remove timed from DEPENDS in mkcal_git.bb. AsteroidOS does not use Maemo timed for alarm scheduling so this is safe.",
+   "highdpi_scaling": "Qt6 reads the display physical size in mm from hwcomposer HAL and calculates devicePixelRatio from physical DPI vs assumed 96 logical DPI. On TicWatch Pro 2020 this produces DPR ~2.9 and QScreen::geometry() reports 110x110 instead of 320x320. The evdevtouch input plugin uses QScreen::geometry() for coordinate scaling, compressing all touch coordinates into the top-left ~34% of the screen. Rendering is unaffected (uses EGL framebuffer directly). Fix: install QT_ENABLE_HIGHDPI_SCALING=0 into /var/lib/environment/compositor/ via a .conf file sourced by the asteroid-launcher systemd EnvironmentFile. Confirmed Screen.width jumps from 110 to 320 after fix. All touch interaction restored.",
+   "environment_file_path": "/var/lib/environment/compositor/*.conf — sourced by asteroid-launcher.service via EnvironmentFile=-/var/lib/environment/compositor/*.conf. Drop .conf files here for compositor-scoped env vars. Install via do_install:append in asteroid-launcher_git.bb.",
+   "application_p_zero_size": "In Qt6 the Wayland xdg_toplevel configure handshake is asynchronous. Application_p (QQuickItem subclass) uses anchors.fill: parent in Application.qml. The parent QQuickWindow geometry arrives after QML Component.onCompleted, leaving Application_p at 0x0. This causes LayerStack to calculate sub-page x positions as depth * 0 = 0 at push() time, stacking all pages with no slide animation. Fix: override itemChange in Application_p to detect ItemSceneChange and sync size from QQuickWindow::widthChanged signal. Guard with w->width() > 0 since first ItemSceneChange fires before window is sized.",
+   "gesturefilterarea_signal_signatures": "GestureFilterArea C++ signals confirmed: swipeMoved(bool horizontal, qreal delta) and swipeReleased(bool horizontal, qreal velocity, bool tracing). Note tracing is LAST in swipeReleased, not first. Wrong parameter order in Qt6 arrow function syntax causes broken flick physics.",
+   "screen_width_321": "Qt6 reports Screen.width as 321 (not 320) in Wayland client processes on sparrow after the HiDPI fix. One-pixel discrepancy likely from Wayland output rounding. Negligible for layout but worth noting when debugging coordinate calculations.",
+   "mce_display_blanking": {
+    "gconf_keys": {
+     "inhibit_blank_mode": "Controls MCE blanking inhibit. 0 = disabled (normal blanking). 3 = stay-on (display never blanks regardless of inactivity). Must be shipped as 0 in mce/builtin-gconf.values or fresh Qt6 images boot with stay-on mode active.",
+     "tklock_blank_disable": "Controls MCE autoblank from lockscreen. 0 = enabled (normal). 1 = disabled (display never blanks from lockscreen). Must be shipped as 0 in mce/builtin-gconf.values.",
+     "use_low_power_mode": "Controls AoD (ambient display) mode. true = AoD active. false = AoD disabled. Written by Qt6 launcher on startup and also by something at runtime — exact writer unknown as of 2026-05. Toggling the AoD QuickPanel button fixes it each time.",
+     "file_location_on_device": "/var/lib/mce/builtin-gconf.values",
+     "recipe_source_location": "recipes-nemomobile/mce/mce/builtin-gconf.values",
+     "diagnostic_command": "mcetool --status | grep -E 'Blank inhibit|Tklock autoblank|Low power mode'"
+    },
+    "runtime_aod_issue": "AoD display randomly reverts to black during runtime without user action. Toggling AoD in QuickPanel restores it. Something writes use_low_power_mode=false during normal operation — not only at boot. Likely a charger state or battery event triggering an MCE set_config call from somewhere in the launcher or a Nemo system service. Not yet identified. Needs dbus-monitor capture during runtime to isolate caller."
+   },
+   "applauncher_scope_chain": {
+    "description": "Applauncher QML files (000-vertical, 001, 002, 003, 004, 005) are loaded dynamically as preview instances by LauncherPage in asteroid-settings. In that preview context they do not have access to MainScreen.qml properties via the QML scope chain. Qt6 scope chain is stricter than Qt5.",
+    "affected_properties": [
+     "launcherColorOverride — declared as property var on MainScreen.qml:62. Applaunchers write true/false in Component.onCompleted. Qt6 fires: Error: Invalid write to global property launcherColorOverride. FlatMesh color override does not function.",
+     "grid — the PanelsGrid instance. Connections blocks in all applaunchers target grid.currentVerticalPos. Resolves correctly at runtime inside MainScreen but warns when loaded as LauncherPage preview because grid is null."
+    ],
+    "correct_fix": "Pass launcherColorOverride as an explicit property into the dynamically loaded component, or expose via a dedicated context property. For the Connections null target warning: guard target with null check."
+   },
+   "qt6_device_status": {
+    "sparrow": {
+     "codename": "sparrow",
+     "full_name": "ASUS ZenWatch 2 / TicWatch Pro 2020",
+     "soc": "MSM8226",
+     "kernel": "3.10.40",
+     "gl_framebuffer_errors": "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT (0x8cd6) fires on every render frame under Qt6 RHI. Confirmed MSM8226-specific — not present on MSM8909W or MSM8937 devices. Not fixable at QML level. Requires Qt6 RHI or EGL config fix in lipstick or hwcomposer integration. C++ fix needed. Confirmed absent on MSM8926 (nemo) too, so this is MSM8226-specific within the Adreno 305 family.",
+     "qt6_status": "Boots to homescreen. Touch works. All QML-fixable issues addressed as of 2026-05-16. Remaining blocker: GL framebuffer errors degrade rendering performance.",
+     "confirmed_working": [
+      "homescreen",
+      "watchface display",
+      "AoD on first boot",
+      "display blanking after MCE fix",
+      "settings pages after depth/pop fix",
+      "turbo-list after MagneFire PR #227"
+     ]
+    },
+    "aurora": {
+     "codename": "aurora",
+     "full_name": "Google Pixel Watch 2",
+     "soc": "Snapdragon W5",
+     "screen": "round",
+     "gl_framebuffer_errors": "unknown — port in early stages",
+     "qt6_status": "Initial boot success announced by kido. Port in progress.",
+     "notes": "First Snapdragon W5 target. Significant for community adoption — current-generation, widely known hardware. moWerk acquired dev unit. Port is kido-led."
+    },
+    "belugaxl": {
+     "codename": "belugaxl",
+     "full_name": "OPPO Watch 46mm",
+     "soc": "MSM8909W",
+     "kernel": "4.9",
+     "screen": "320x360 rectangular-portrait",
+     "gl_framebuffer_errors": "NONE — MSM8909W driver handles Qt6 RHI correctly",
+     "qt6_status": "Boots and runs smoothly. Noticeably faster than Qt5 on same hardware. Qt6 scene graph improvements evident.",
+     "confirmed_working": [
+      "homescreen",
+      "watchface display",
+      "AoD",
+      "display blanking after MCE fix"
+     ],
+     "notes": "Same MCE gconf boot issue as sparrow. Battery was at 98% during first test so charger-related inhibit self-cleared quickly."
+    },
+    "narwhal": {
+     "codename": "narwhal",
+     "full_name": "LG Watch W7",
+     "kernel": "4.9",
+     "screen": "round",
+     "gl_framebuffer_errors": "NONE",
+     "qt6_status": "Boots cleanly. Full DIM to LPM_ON to OFF display blanking sequence confirmed correct on first boot without MCE fix needed.",
+     "physical_hands": "Physical analog hands confirmed syncing correctly to Qt6 compositor on first boot. Hands tracked FirstRunConfig time input in real time.",
+     "confirmed_working": [
+      "homescreen",
+      "watchface display",
+      "AoD",
+      "display blanking",
+      "physical hands sync",
+      "WiFi persists across reboot"
+     ],
+     "notes": "WiFi ConnMan agent persists across reboot on narwhal — the reconnect regression is sparrow and rubyfish specific, not a general Qt6 issue."
+    }
+   },
+   "known_open_issues": [
+    "GL framebuffer incomplete 0x8cd6 on MSM8226 — Qt6 RHI creates attachment configs not supported by old Qualcomm GLES driver. QSG_NO_DEPTH_BUFFER=1 did not help. Causes render stuttering.",
+    "nightstand and hournightstandMode context properties not injected — watchfaces using these get ReferenceError.",
+    "QFont::setWeight 0 invalid in Qt6 — watchfaces setting font.weight: 0 need font.weight: 1 or Font.Thin.",
+    "Today panel (ListView at position 1,0): swipe-right to exit does not work in Qt6 on beluga. All other Flickable panels work correctly. Root cause specific to Today.qml configuration, not a general Qt6 Flickable regression. Multiple fix attempts failed. Needs direct Today.qml vs working Flickable panel comparison to isolate.",
+    "timed service crash loop — com.nokia.time DBus registration denied by policy."
+   ],
+   "pulse_latency_msec_overrides_qt_buffer_attr": "Qt6's PulseAudio sink (QPulseAudioSinkStream::startStream, src/multimedia/pulseaudio/qpulseaudiosink.cpp) sets pa_buffer_attr.maxlength to m_hardwareBufferFrames.value_or(1024) frames and leaves tlength at -1. maxlength is the server's whole buffer for the stream and PulseAudio clamps tlength down to it, so every Qt audio stream runs on 21ms at 48kHz. m_hardwareBufferFrames (m_nativePeriodFrames in dev) is only ever set by the spatial audio engine, unreachable from QAudioSink/QSoundEffect, so the 1024 fallback always applies. No public API reaches it: setBufferSize() and setBufferFrameCount() size Qt's own ringbuffer. Symptom is continuous chopping on slow single-core devices (1182 implicit underruns in 64s on beluga, 997 on sturgeon). THE FIX IS NOT A QT PATCH. PULSE_LATENCY_MSEC is read by LIBPULSE, not Qt (qtmultimedia 6.11.2 contains no reference to it): patch_buffer_attr() in src/pulse/stream.c, called from pa_stream_connect_playback(), DISCARDS the pa_buffer_attr the application supplied and substitutes maxlength=-1, tlength=<ms>, minreq=-1, prebuf=-1, fragsize=tlength, and forces PA_STREAM_ADJUST_LATENCY. So qputenv(\"PULSE_LATENCY_MSEC\", ...) in main() before the sink starts fixes an individual app with no library change, which is what shipped (moWerk/asteroid-beatfork#4); meta-asteroid#318 patched qtmultimedia fleet-wide and was closed as too low level. Only asteroid-beatfork uses Qt for audio playback in a shipped image; everything else goes through ngfd/GStreamer. Geometry constraint either way: tlength must stay well under Qt's ringbuffer (0.4-0.5 measured best), because PulseAudio requests a whole tlength per callback, so equal sizes let one callback drain the ringbuffer and Qt then pads the shortfall with SILENCE and writes a full buffer anyway - audible, and invisible to PulseAudio because no underrun is reported. Cost of a longer buffer: an amplitude envelope applied at stop only ramps newly generated samples, so the already-queued tail (ringbuffer + tlength) plays at full volume first; size any drain timer as ring + tlength + ramp + margin or the tail is cut into a click."
+  },
+  "community_app_packaging": {
+   "app_launching_from_qml": {
+    "pattern": "To launch other AsteroidOS apps from QML, create an AppLauncher class in main.cpp with Q_INVOKABLE methods and expose via setContextProperty",
+    "implementation": "class AppLauncher : public QObject with launchApp(QString) and launchDesktopFile(QString) methods using QProcess::startDetached()",
+    "qml_usage": "appLauncher.launchApp('asteroid-settings') after exposing via rootContext()->setContextProperty('appLauncher', appLauncher)",
+    "lipstick_limitation": "Lipstick.compositor.launchApplication() not accessible from community apps — Lipstick object undefined in QML runtime. Community apps cannot use the launcher's native app launching API.",
+    "qt_openUrlExternally_broken": "Qt.openUrlExternally() fails with 'platform plugin does not support services' error on AsteroidOS — cannot be used for app launching",
+    "qprocess_requirement": "#include <QProcess> and #include 'main.moc' when defining Q_OBJECT class directly in main.cpp",
+    "desktop_file_handling": "Strip .desktop suffix from filename and launch the base name — full desktop file parsing not required for basic launching",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "single_page_app_root": "Declare DisplaySettings and the page component directly inside Application root in main.qml. No AppShell, no Loader, no LayerStack.",
+   "appshell_black_screen": "AppShell/Loader/LayerStack pattern causes silent black screen with no console errors on single-page apps — do not use. LayerStack silently swallows the page. Confirmed failure mode on asteroid-pulsar and asteroid-heliograph. Only use AppShell+LayerStack for genuine multi-page apps with push/pop navigation.",
+   "deferred_loading_pattern": "For multi-page apps: Loader active: index === 0 || pagesWarmed. pagesWarmed set by 1500ms Timer.",
+   "writable_paths": "Apps run as ceres user without root — all file writes must target XDG user-writable paths (~/.local/share/, ~/.config/), not /usr/share/",
+   "display_settings_in_main": "For single-page apps declare DisplaySettings directly in Application root. No need to defer to AppShell.",
+   "qmake_submodule_in_cmake": {
+    "pattern": "When an app depends on a qmake-based library (e.g. literm), build it via add_custom_command inside CMakeLists.txt rather than migrating its build system. Invoke qmake + make targeting the submodule .pro file, output to CMAKE_BINARY_DIR/submodule-build/. Install the resulting plugin directory to ${CMAKE_INSTALL_PREFIX}/lib/qml/<pluginname>/.",
+    "import_path": "Call engine.addImportPath(QStringLiteral(\"/usr/lib/qml\")) in main.cpp before engine.load() so the QML engine finds third-party plugins installed outside the default Qt plugin search paths.",
+    "install_target": "Plugin directory must contain both the .so and a qmldir file. Install as a directory, not individual files, to preserve the qmldir alongside the binary.",
+    "domain": "platform",
+    "confidence": "inferred"
+   },
+   "new_repo_workflow": "gh repo create moWerk/asteroid-appname --public --description '...' then git remote add origin git@github.com:moWerk/asteroid-appname.git && git push -u origin main",
+   "watchface_settings_page_pattern": {
+    "description": "Watchfaces can expose an embedded settings page via a Component property named settingsPage. The WatchfaceSelector detects this at runtime via typeof previewQml.item.settingsPage !== 'undefined' after the Loader has resolved. The settingsPage Component must be a self-contained Page with its own PageHeader. Detection requires the Loader to be active — previewQml.active must be true for the active watchface tile. dodoradio PR #87 introduced this pattern.",
+    "detection": "previewQml.item && typeof previewQml.item.settingsPage !== 'undefined'",
+    "push_pattern": "layerStack.push(previewQml.item.settingsPage) — pushes the Component directly, no wrapper needed for stock watchfaces",
+    "user_watchface_with_settings": "Push WatchfaceSettingsContainer with settingsPage Component reference + watchfaceName + watchfaceFile params — container hosts both settings and remove page in horizontal ListView",
+    "reference_implementation": "analog-classy-roman.qml from dodoradio",
+    "domain": "platform",
+    "confidence": "confirmed"
+   },
+   "watchface_xdg_user_path": {
+    "description": "User-installed watchfaces live in the XDG user data path, not the system path. WatchfaceHelper.userWatchfacePath() returns the plain path (no file:// prefix) to ~/.local/share/asteroid-launcher/watchfaces/. WatchfaceHelper.userAssetPath() returns the file:// prefixed URL to ~/.local/share/asteroid-launcher/. FolderListModel pointing at user watchfaces must prepend file:// to userWatchfacePath(). Active watchface dconf values for user watchfaces must use userAssetPath() + 'watchfaces/' + name + '.qml' to get the correct file:// prefix. Documentation must be updated to point users to XDG path for manual installs instead of the system path which requires root.",
+    "folderlistmodel_folder": "folder: 'file://' + WatchfaceHelper.userWatchfacePath()",
+    "dconf_active_value": "WatchfaceHelper.userAssetPath() + 'watchfaces/' + name + '.qml'",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "ungrabmouse_after_release_unnecessary": {
+    "description": "Calling ungrabMouse() inside mouseReleaseEvent is unnecessary per Qt 5.15 docs: there is no need to call this function after a release or cancel event since no future events will be received in any case. The GestureFilterArea PR adding ungrabMouse() after swipeReleased was rejected on this basis. If a contributor proposes ungrabMouse() in a release handler, request a concrete reproduction case demonstrating a stuck grab before accepting it.",
+    "domain": "platform",
+    "confidence": "confirmed"
+   },
+   "quickpanel_pressdelay": {
+    "description": "pressDelay: 100 on the QuickPanel slidingRow ListView is confirmed working on device. 200ms is perceptibly slow as tap lag on the toggle buttons. 100ms is the correct value — long enough to let the Flickable distinguish flick from tap, short enough to not feel sluggish. Pair with preventStealing: true on QuickPanelToggle to prevent the ListView reclaiming the press after the delay resolves.",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "flickable_deceleration": {
+    "description": "Qt's default Flickable flickDeceleration was designed for phone-class DPI and screen sizes. On watch screens it produces over-travel that makes list position hard to predict after a flick. AsteroidOS currently does not tune this at all. Setting flickDeceleration per ListView instance is the pragmatic approach — it does not require patching the Qt platform plugin and avoids portability issues. A custom AsteroidOS ListView control in qml-asteroid that sets sensible defaults would be the correct long-term solution. No confirmed values yet — needs systematic measurement across device screen sizes.",
+    "domain": "platform",
+    "confidence": "identified-not-yet-fixed"
+   },
+   "new_app_desktop_generation": {
+    "rule": "asteroid-generate-desktop needs TWO inputs, not one: <src>/<app>.desktop.template AND <src>/i18n/<app>.desktop.h. Shipping only the template builds a package with no .desktop and no launcher entry.",
+    "header_format": "i18n/<app>.desktop.h must contain the default display name as a magic comment: //% \"My App\"  followed by qtTrId(\"id-app-launcher-name\");  — the script extracts it with grep -oP '//% \"\\K[^\"]+(?=\")'",
+    "failure_mode": "With the header missing the generator exit 2s, no .desktop is written, and the build fails LATER in do_install with a bare 'CMake Error at cmake_install.cmake:<n> (file): No such file or directory' — no filename, no mention of the generator. Do not debug this as a CMake bug; read the generator's preconditions.",
+    "harmless_message": "'Couldn't find a corresponding language id, aborting' with exit 0 is NORMAL for a new app with no i18n/*.ts translations yet. It reads like the error and is not.",
+    "configure_time_trap": "generate_desktop() runs at CMake CONFIGURE time via execute_process. Adding the header only takes effect once do_configure actually re-runs — devtool reuses a cached configure and reproduces the IDENTICAL error, which reads as 'the fix did nothing' when the fix never executed. Run 'bitbake -c cleansstate <app>' before any rebuild meant to prove a configure-time fix.",
+    "cheap_verification": "Verify a configure-time generator by running it by hand against the staged source before spending a build cycle: <sysroots-components>/x86_64/asteroid-generate-desktop-native/usr/bin/asteroid-generate-desktop <srcdir> <appname> /tmp/out.desktop",
+    "devtool_does_not_package": "devtool build <app> stops after do_packagedata: it reports full success and leaves deploy/ipk EMPTY. The installable package needs an explicit 'bitbake -c package_write_ipk <app>'.",
+    "verified": "2026-07-28, benchymark on the w541 (Arch bare metal, native build). Package payload confirmed by unpacking the ipk.",
+    "upstream_status": "Reported to moWerk for co-maintainer discussion: the two-input requirement is undocumented, the failure surfaces far from its cause, and the empty-.ts message should not say 'aborting'."
+   }
+  },
+  "persistence": {
+   "filehelper_c_path_format": {
+    "summary": "The FileHelper C++ singleton contributed by beroset expects a native filesystem path, NOT a file:// URI. Correct: '/home/ceres/shopper.txt'. Incorrect: 'file:///home/ceres/shopper.txt'. XMLHttpRequest works with file:// URIs because it is URI-scheme-aware, but FileHelper uses QFile internally which expects native paths. Confirmed failure: 'No such file or directory' error when passing URI to FileHelper.writeFile().",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "qsettings_vs_dconf": "QSettings for app-private state — part of QtCore, no CMakeLists or recipe changes needed. MGConfItem/dconf only when other apps may write the same key. Confirmed pattern: FlorentRevest explicitly recommended QSettings over dconf for stopwatch state because no other app changes timing values — cross-app reactivity was not needed.",
+   "mgconfitem_dep": "mlite5 — avoid unless cross-app notification is genuinely needed",
+   "qsettings_path": "QStandardPaths::HomeLocation + /.config/appname/game.ini",
+   "qsettings_group_separator": "QSettings treats '/' in key as group separator — level1/bestTime maps to [level1] group with bestTime field",
+   "qsettings_singleton_pattern": "C++ singleton registered via qmlRegisterSingletonType. Q_PROPERTY with READ/WRITE/NOTIFY for each field enables reactive QML bindings. WRITE setter calls m_settings.sync() and emits changed signal. QML can assign directly via property assignment without Q_INVOKABLE when WRITE is declared.",
+   "qsettings_invokable_only_pattern": "For per-key data that is read once at event time rather than bound live (e.g. per-difficulty high scores), use Q_INVOKABLE read/write methods with no Q_PROPERTY and no NOTIFY signal. Avoids binding engine overhead for data QML never needs to watch reactively. Write guard (only store if value exceeds current) built into the invokable setter. Key mapping pattern: display string toLower().replace(' ', '_') + '/' + field — QSettings '/' separator produces clean INI sections automatically. Confirmed pattern: DodgerStorage.highScore(difficulty) / setHighScore(difficulty, v) in asteroid-dodger.",
+   "qsettings_migration_direction": "Co-maintainers are actively migrating community apps away from Nemo.Configuration/mlite5 toward QSettings. New apps should use QSettings singleton from the start. Existing apps using ConfigurationValue should plan migration — mlite5 dependency may be dropped from meta-asteroid-community.",
+   "combo_persistence_lesson": "Never maintain local QML property copies alongside C++ storage properties for the same state. They silently diverge. Use the singleton directly everywhere in QML.",
+   "file_read_singleton": "For user-editable plain text files read at launch: slim read-only C++ singleton with Q_INVOKABLE method only, no write-back. QFile + QTextStream in the invokable. Registered via qmlRegisterSingletonType. File path hardcoded to /home/ceres/.local/share/appname/filename.txt. Recipe installs the default file via do_install:append with install -m 0644.",
+   "property_var_mutation_signal": "Mutating a property var array (unshift, index assignment) does NOT emit a changed signal in Qt 5.15. Always reassign: categories = categories after mutation to force binding re-evaluation in dependent items.",
+   "opkg_no_overwrite": {
+    "rule": "opkg does NOT overwrite an existing file on device when reinstalling a package, even if the packaged version has different content. If the app previously created the file (even as empty), subsequent reinstalls leave that existing file untouched.",
+    "implication": "A recipe that installs a default data file via do_install:append is only reliable for truly clean installs. Any user who ran a broken prior version that caused the app to create the file (e.g. by writing empty content on startup) will never receive the corrected file through a package update.",
+    "confirmed_case": "asteroid-shopper 2.5: broken install caused FileHelper.writeFile to create an empty default-shopper.txt. Subsequent fixed-recipe reinstall left the empty file in place. Only a manual rm before reinstall resolved it."
+   },
+   "default_data_file_seeding": {
+    "rule": "Shipping a default data file via recipe alone is not sufficient for resilience. The app must be self-healing: on startup, if the expected file exists but is empty, treat it the same as missing and reseed from a bundled fallback.",
+    "pattern": "Bundle the default file in resources.qrc. On Component.onCompleted, after FileHelper.exists() check: if the file exists but countItems() returns 0, read the bundled default from Qt resources (:/default-shopper.txt) and write it via FileHelper.writeFile. Recipe still installs the file as a convenience for fresh installs, but the app does not depend on it.",
+    "why": "Separates concerns correctly: recipe handles installation, app handles data integrity. Eliminates the opkg-no-overwrite failure mode permanently."
+   }
+  },
+  "hardware": {
+   "catfish_native_resolution_clarification": "Catfish (TicWatch Pro) native screen resolution is 400x400px. The 240x240px canonical reference resolution in visual_design_guide.json is the Dims.l typography validation floor — the minimum screen size used to verify font legibility thresholds — not catfish's actual panel resolution. Dims.l(100) on catfish returns 400px. Confusing these two values is a confirmed LLM error mode.",
+   "device_hardware_database": "device_db_final.json is the canonical combined hardware and feature reference for all AsteroidOS devices. It merges watches-support.json (AsteroidOS feature statuses), the community WearOS spec spreadsheet (hardware specs: resolution, DPI, screen type, RAM, battery, sensors), and the wiki Watch Feature List (authoritative feature statuses post-2.0 release). The Watch Feature List at https://wiki.asteroidos.org/index.php/Watch_Feature_List is the most authoritative and recent source for per-device feature statuses. Hardware absent from a device is represented as omitted from the features array (not listed as 'bad') — this is the semantic distinction between 'missing' (no hardware) and 'bad' (hardware exists, software not working).",
+   "gpu_monitoring": "cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage — reads Adreno GPU busy percentage. Use to baseline shader wallpaper GPU cost against FlatMesh at equivalent frame rate.",
+   "catfish": "AsteroidOS flagship reference device, 9/10 performance rating. NOT the slowest. Primary development and performance gate.",
+   "rubyfish_rover_hoki": "Marginally faster than catfish due to newer SoC (msm8937 vs msm8909w), tested secondary device",
+   "slow_devices": "2-3 watches appear slow due to Android base upgrade port issues, NOT hardware speed",
+   "screen_shapes": "Three categories: round (majority — primary design target), square (dory-family — tolerate round content), rectangular-portrait (Beluga only — use Math.min(parent.width, parent.height) for all circular content)",
+   "device_specs_properties": [
+    "hasSpeaker",
+    "hasHaptic",
+    "hasRoundScreen",
+    "needsBurnInProtection"
+   ],
+   "60fps_game_loops": "16ms Timer game loops confirmed working on all current devices including catfish. 55+ per-rock Shape Repeaters with PathPolyline bindings updating every frame are acceptable load.",
+   "round_screen_hud_safety": "HUD elements above 15% from top or below 85% from bottom risk clipping on round screens.",
+   "accelerometer_axes": {
+    "confirmed_on_rubyfish_catfish": "X positive = left edge dips (roll right). Y positive = screen tilts away from user (top edge dips = negative pitch in our convention). Z positive = face up flat.",
+    "pitch_formula": "Math.atan2(-smoothedY, Math.abs(smoothedZ)) * 180 / Math.PI — positive when top edge dips",
+    "roll_formula": "Math.atan2(smoothedX, Math.abs(smoothedZ)) * 180 / Math.PI — positive when left edge dips",
+    "horizon_formula": "Math.atan2(smoothedX, smoothedY) * 180 / Math.PI — gimbal-safe XY-only formula for horizon mode rotation. Confirmed stable at all angles including 90deg. Never use Z in horizon rotation formula — causes gimbal lock singularity at vertical orientation.",
+    "smoothing_factor_spirit_level": "0.14 confirmed for spirit level use — slower than game use (0.65) for stability",
+    "smoothing_factor_game": "0.65 confirmed for game use with dead zone 0.06",
+    "smoothing_factor_message_rotation": "0.4 confirmed for heliograph message rotation — responsive enough for arm movement, stable enough to avoid jitter",
+    "multi_orientation_horizon": "ABANDONED — do not retry. Attempted horizonAxis detection to support nightstand/sideways orientation. Multiple atan2 formula switching approaches failed. Only user-facing tilt (Y-axis dominant) works reliably with the horizon formula. Root cause not fully diagnosed."
+   },
+   "sendevent_touch_simulation": {
+    "summary": "On AsteroidOS devices (confirmed on sturgeon/Huawei Watch), touch input can be simulated over SSH using sendevent on /dev/input/event0 (synaptics_dsx driver). Uses Linux multi-touch protocol B. Key event codes: ABS_MT_TRACKING_ID (3/57), ABS_MT_POSITION_X (3/53), ABS_MT_POSITION_Y (3/54), ABS_MT_TOUCH_MAJOR (3/48), ABS_MT_TOUCH_MINOR (3/49), SYN_REPORT (0/0/0). Touch down: TRACKING_ID = positive integer. Touch up: TRACKING_ID = -1. Long press for AoD wake confirmed working at 0.8s hold. The 'input tap x y' command exists but crashes with core dump on AsteroidOS — use sendevent directly. /dev/input/event1 is qpnp_pon (power/key events), not touchscreen.",
+    "domain": "hardware",
+    "confidence": "confirmed-on-device"
+   },
+   "getevent_recording_replay": {
+    "summary": "Touch interaction sequences can be recorded using 'getevent -t /dev/input/event0 > tour.log' while performing gestures manually. The -t flag adds timestamps. An awk script can convert the timestamped log into a sendevent replay shell script by mapping hex event codes to sendevent commands and computing sleep durations from timestamp deltas. Useful for demo automation and regression testing without physical screen access. Replay via 'ssh root@watch bash -s < tour_replay.sh'.",
+    "domain": "hardware",
+    "confidence": "confirmed-on-device"
+   },
+   "community_recipe_cmake_access": {
+    "summary": "Community recipe sysroots DO have access to meta-asteroid CMake modules including ECM, AsteroidApp6, Asteroid6CMakeSettings, and Asteroid6Translations when qml-asteroid is in DEPENDS. The CMake configure step succeeds. The actual failure mode when using generate_desktop() without asteroid-generate-desktop-native in DEPENDS is at do_install time — cmake cannot find the generated appname.desktop file. Fix: add asteroid-generate-desktop-native to DEPENDS:append. The prior claim that these modules were unavailable in community sysroots was wrong. Confirmed by asteroid-toolwatch community recipe build, MagneFire clarification 2026-05.",
+    "domain": "platform",
+    "confidence": "confirmed — corrected 2026-05 (prior claim was wrong)"
+   },
+   "qml_microphone_access_approaches": {
+    "summary": "Microphone access in AsteroidOS QML apps has two paths: (1) File-based: AudioRecorder from QtMultimedia records to WAV file, analyze periodically — pure QML, ~0.5-2s latency. (2) Real-time: QAudioInput + AudioProbe requires a C++ wrapper class exposing raw sample buffers to QML — enables BPM onset detection. For BPM detection from audio, simple energy-window onset detection (10ms windows, peak threshold ~1.5x neighbours) is viable on watch ARM hardware. Full FFT libraries are too heavy.",
+    "domain": "platform",
+    "confidence": "inferred"
+   },
+   "palm_to_sleep": {
+    "description": "Palm-to-sleep gesture requires a functional ambient light sensor. Covering the display blocks the sensor and triggers immediate sleep. Always active when the light sensor is present, no software toggle exists. Not available on watches where the light sensor hardware is absent or non-functional — check device feature list.",
+    "domain": "hardware",
+    "confidence": "confirmed"
+   }
+  },
+  "audio": {
+   "sound_dir": "/usr/share/sounds/",
+   "format": "WAV preferred, keep under 0.5s for clean PulseAudio buffer handling",
+   "loop_splice": "ensure whole number of cycles at target frequency to avoid click on loop",
+   "pulseaudio": {
+    "daemon_user": "ceres",
+    "socket_path": "/run/user/1000/pulse/native",
+    "unix_socket": "unix:/run/user/1000/pulse/native",
+    "check_running": "ps aux | grep pulseaudio"
+   },
+   "bluetooth_audio": {
+    "classic_bt_mode": "Edit /etc/bluetooth/main.conf and comment out 'ControllerMode = le' line to enable BR/EDR (classic Bluetooth) alongside BLE",
+    "dual_mode_support": "After enabling classic mode, watch supports both BLE sync (notifications, weather) and A2DP audio devices simultaneously",
+    "runtime_toggle": "Can toggle between BLE-only and dual-mode by editing config and restarting bluetooth service without full reboot",
+    "a2dp_pairing": "Use bluetoothctl to pair/trust/connect A2DP devices. Trusted devices auto-connect on power-on.",
+    "battery_impact": "Dual-mode Bluetooth increases battery consumption vs BLE-only mode",
+    "gst_play_test": "gst-play-1.0 /path/to/file.mp3 routes audio correctly to connected Bluetooth speaker via PulseAudio"
+   },
+   "mpd": {
+    "installation": "opkg install mpd",
+    "config_path": "/etc/mpd.conf",
+    "music_directory": "/home/ceres/Music",
+    "database_path": "/home/ceres/.mpd/database",
+    "state_file": "/home/ceres/.mpd/state",
+    "playlist_directory": "/home/ceres/.mpd/playlists",
+    "audio_output_pulseaudio": "type pulse, server unix:/run/user/1000/pulse/native, user ceres",
+    "protocol_port": "6600 (TCP localhost)",
+    "protocol_test": "echo 'command' | nc localhost 6600",
+    "systemd_service": "mpd.service, must run as ceres user to access PulseAudio session",
+    "playlist_workflow": "Files visible via 'listall' are NOT playable until added to current playlist with 'add /' command",
+    "basic_commands": {
+     "update_db": "update",
+     "list_files": "listall",
+     "clear_playlist": "clear",
+     "add_all": "add /",
+     "play_index": "play 0",
+     "pause_toggle": "pause",
+     "next": "next",
+     "previous": "previous",
+     "status": "status",
+     "playlist_info": "playlistinfo"
+    },
+    "mpd_mpris_bridge": {
+     "package": "mpd-mpris (github.com/natsukagami/mpd-mpris)",
+     "purpose": "Exposes MPD playback as an MPRIS2 D-Bus service — org.mpris.MediaPlayer2.mpd.asteroid",
+     "dbus_name": "org.mpris.MediaPlayer2.mpd.asteroid",
+     "dbus_path": "/org/mpris/MediaPlayer2",
+     "dbus_iface": "org.mpris.MediaPlayer2.Player",
+     "start_command": "/usr/bin/mpd-mpris --host localhost --port 6600 --instance-name asteroid",
+     "open_uri_missing": "mpd-mpris does NOT implement the OpenUri D-Bus method — returns UnknownMethod error. Files must be queued via MPD protocol (add command) and playback triggered separately via Play.",
+     "confirmed_working": [
+      "Play",
+      "Pause",
+      "Stop",
+      "Next",
+      "Previous",
+      "Metadata (Get)",
+      "PropertiesChanged signals"
+     ],
+     "test_play": "dbus-send --session --dest=org.mpris.MediaPlayer2.mpd.asteroid --type=method_call --print-reply /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Play",
+     "test_metadata": "dbus-send --session --dest=org.mpris.MediaPlayer2.mpd.asteroid --type=method_call --print-reply /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get string:org.mpris.MediaPlayer2.Player string:Metadata"
+    },
+    "mpris_manager_bluetooth_only": "import org.nemomobile.mpris 1.0 — MprisManager only connects to Bluetooth MPRIS services (asteroid-btsyncd). Despite the general-sounding name it cannot control local MPRIS services like mpd-mpris. For local MPD control, use a separate DBusInterface targeting org.mpris.MediaPlayer2.mpd.asteroid or a native MpdUtil class.",
+    "mpd_mpris_recipe_final": {
+     "supersedes": "Earlier partial recipe captures — this is the confirmed-building version",
+     "srcrev": "49cb58636523c12e4252959fe97f4b4a7116f0a8",
+     "branch": "master (NOT main — upstream uses master)",
+     "license_path": "file://src/github.com/natsukagami/mpd-mpris/LICENSE;md5=a1a592d0fc3d43a59df9f1ace268bc31",
+     "source_files_path": "${S}/src/github.com/natsukagami/mpd-mpris/ (not ${S}/ directly)",
+     "goroot": "${STAGING_DIR_NATIVE}${prefix_native}/lib/go",
+     "compile_flags": "GOARCH=arm GOARM=7 GO111MODULE=on GOPROXY=off -mod=vendor",
+     "vendor_requirement": "go mod vendor must be run manually using go-binary-native binary before bitbake",
+     "parse_failure_cause": "do_install:append with heredoc (cat > file << 'EOF') causes ParseError if EOF content has extra indentation or adjacent empty lines. Content after << 'EOF' must be flush-left.",
+     "chown_antipattern": "chown username in do_install fails with 'invalid user' — use User=1000 in service file and tmpfiles.d for ownership",
+     "open_uri_not_implemented": "mpd-mpris does NOT implement OpenUri D-Bus method — returns UnknownMethod. Cannot load files via D-Bus URI."
+    },
+    "mixer_software_required": "MPD volume control (setvol) fails with 'Failed to set mixer for AsteroidOS PulseAudio; disconnected' unless mixer_type \"software\" is explicitly set in /etc/mpd.conf. Without it, mpc volume commands appear to succeed but have no effect, and mpd-mpris volume property set produces a stacktrace. Fix: add mixer_type \"software\" to the audio_output block or as a top-level config key.",
+    "mpc_file_path_format": "mpc add expects a relative path from music_directory OR a file:// URI with escaped spaces. Spaces in filenames must be quoted: mpc add \"file:///home/ceres/music/Fonzee - Physicallost.mp3\" or escaped with backslash.",
+    "go_binary_path": "On AsteroidOS Yocto build: go-binary-native installs to build/tmp-glibc/work/x86_64-linux/go-binary-native/1.22.12/go/bin/go (note: no -r0 suffix in this path). GOROOT is at the same prefix: build/tmp-glibc/work/x86_64-linux/go-binary-native/1.22.12/go/lib/go (contains bin/, pkg/, src/)."
+   },
+   "gotchas": [
+    "SoundEffect.GameRole does not exist in Qt 5.15 — app crashes immediately if set. Do not use.",
+    "SoundEffect pipeline priming (silent play on onLoadedChanged or toggle activation) causes audible ghost fires at unexpected moments — do not attempt pipeline warmup tricks.",
+    "SoundEffect.Infinite + rapid source swap causes PA stream conflicts",
+    "dual SoundEffect ping-pong causes drops/burps on PA",
+    "manual loop via Timer causes crackling",
+    "PA stream release timing unpredictable without mixer API"
+   ]
+  },
+  "systemd_session_bus_access": {
+   "problem": "systemd services run with a bare environment — DBUS_SESSION_BUS_ADDRESS is not set by default. Services that need the session D-Bus (e.g. any MPRIS bridge, any app communicating with ceres-owned services) will start without error but silently fail to register on the session bus.",
+   "fix": "Add to [Service] in the unit file: Environment=\"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\"",
+   "verification": "cat /proc/$(pidof servicename)/environ | tr '\\0' '\\n' — confirms DBUS_SESSION_BUS_ADDRESS is present in the running process environment",
+   "session_bus_path": "unix:path=/run/user/1000/bus — owned by ceres (UID 1000), permissions srw-rw-rw-",
+   "confirmed_failure": "mpd-mpris ran for 5+ hours as active/running with no errors but was absent from dbus ListNames — missing DBUS_SESSION_BUS_ADDRESS was the sole cause",
+   "domain": "platform",
+   "confidence": "confirmed-on-device"
+  },
+  "yocto_runtime_user_ownership": {
+   "antipattern": "chown ceres:ceres inside do_install — fails with 'invalid user: ceres:ceres' because the build sandbox has no knowledge of target system users",
+   "fix_service_user": "Use User=1000 (UID) instead of User=ceres in systemd unit files embedded in recipes — avoids username resolution during install",
+   "fix_directory_ownership": "Use systemd tmpfiles.d to set ownership at runtime. Install a file to ${D}${sysconfdir}/tmpfiles.d/pkgname.conf with: d /path/to/dir 0700 1000 1000 - and optionally Z /path/to/dir 0700 1000 1000 - for recursive enforcement. Add to FILES:${PN} and trigger via systemd-tmpfiles --create at boot.",
+   "tmpfiles_d_note": "The Z directive sets ownership recursively on all children — needed when the service creates subdirectories at runtime. The d directive alone only affects the top-level directory.",
+   "domain": "platform",
+   "confidence": "confirmed-on-device"
+  },
+  "mprismanager_api": {
+   "import": "org.nemomobile.mpris 1.0",
+   "available_properties": [
+    "currentService",
+    "availableServices",
+    "playbackStatus",
+    "volume",
+    "metadata",
+    "canPlay",
+    "canPause",
+    "canGoPrevious",
+    "canGoNext"
+   ],
+   "missing_properties": {
+    "serviceFilter": "Does NOT exist — cannot restrict MprisManager to a specific service. Must manage currentService manually.",
+    "openUri_file_scheme": "MprisManager.openUri() rejects file:// URLs — logs 'bool MprisController::openUri(const QUrl&) The scheme is not supported'. Only works for remote streaming URIs from Bluetooth MPRIS sources."
+   },
+   "service_switching": "Set currentService to an explicit service name string from availableServices to switch control target. Set to empty string ('') to disconnect. availableServices is a list of currently registered MPRIS service names on the session bus.",
+   "slot_error": "QObject::connect: No such slot MprisPlayerInterface::onAsyncSetPropertyFinished(QDBusPendingCallWatcher*) — non-fatal warning appearing when a remote MPRIS service is active. Does not break remote metadata display or playback control.",
+   "bluetooth_service_name": "org.mpris.MediaPlayer2.asteroid-btsyncd — the Bluetooth MPRIS bridge service name. This is what MprisManager picks up for remote device control.",
+   "domain": "platform",
+   "confidence": "confirmed-on-device"
+  },
+  "cpp_singletons": {
+   "registration": "qmlRegisterSingletonType in main.cpp before AsteroidApp::main()",
+   "q_property_pattern": "Q_PROPERTY(type name READ getter WRITE setter NOTIFY changed). WRITE setter validates, writes to m_settings, calls sync(), emits signal. QML assigns directly without Q_INVOKABLE.",
+   "q_invokable_vs_property": "Calling a non-invokable C++ method directly from QML JS throws silent TypeError that exits the calling function with no console output.",
+   "qsettings_in_constructor": "Initialise QSettings in constructor initialiser list with full path. Call QDir().mkpath() for the config directory in constructor body.",
+   "clock_boottime": "clock_gettime(CLOCK_BOOTTIME) — monotonic, ticks through suspend, resets on reboot.",
+   "clock_boottime_session_tracking": "CLOCK_BOOTTIME for stopwatch/timer session tracking: store startBoottime = boottimeMs() on start(). On app restart, if boottimeMs() >= savedStartBoottime, same boot — resume with elapsed = baseElapsed + (boottimeMs() - startBoottime). If boottimeMs() < savedStartBoottime, reboot detected — invalidate session. Superior to /proc/uptime (no file read) and wall clock (immune to NTP/DST/manual changes). Confirmed pattern in asteroid-stopwatch StopwatchController.",
+   "reboot_detection": "currentBoottime < savedStartBoottime is unambiguous reboot detection without UUID",
+   "read_only_singleton": "For file-reading singletons with no write-back: Q_DISABLE_COPY, private default constructor, static qmlInstance factory, Q_INVOKABLE methods only. No Q_PROPERTY needed. See FileHelper pattern in asteroid-heliograph."
+  },
+  "dbus_patterns": {
+   "dbus_typed_call_boolean": {
+    "issue": "DBus typedCall boolean arguments must use JS boolean false/true, not string '0'/'1'. Passing { \"type\":\"b\", \"value\":\"0\" } silently sends incorrect data — confirmed bug found in TimezonePage SetTimezone call.",
+    "correct_pattern": "{ \"type\": \"b\", \"value\": false }",
+    "domain": "platform",
+    "confidence": "confirmed"
+   },
+   "root_ssh_session_limitations": {
+    "dconf": "dconf requires a live user session with XDG_RUNTIME_DIR set. Root SSH sessions have no /run/user/0 dconf socket. Always run dconf commands as ceres: ssh ceres@catfish 'dconf write ...'",
+    "reboot": "systemd-logind silently ignores reboot/shutdown from non-seat SSH sessions. ssh root@catfish 'reboot' works as a one-shot command. Interactive root shell reboot requires su root first to inherit a seat session.",
+    "su_from_root": "su -s /bin/sh -c '...' ceres from a root SSH shell inherits root's broken environment, not ceres's session. XDG_RUNTIME_DIR override also fails due to /run/user/0 permission. Only a real ceres login gets a working session.",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "timedate1": {
+    "service": "org.freedesktop.timedate1",
+    "path": "/org/freedesktop/timedate1",
+    "bus": "DBus.SystemBus",
+    "read_timezone": "timedateDbus.getProperty('Timezone') — returns IANA string e.g. 'Europe/Berlin'",
+    "list_timezones": "timedateDbus.call('ListTimezones', undefined, callback) — callback receives flat string array",
+    "set_timezone": "timedateDbus.typedCall('SetTimezone', [{ type: 's', value: tzName }, { type: 'b', value: false }], successCb, errorCb)"
+   },
+   "firstrun_reset": "dconf write /org/asteroidos/launcher/firstRunDone false — FirstRunConfig shows on next reboot",
+   "hardware_button_input": "UNRESOLVED — no confirmed working pattern for hardware button press events in community apps. Root cause confirmed: evdev key events arrive at Lipstick compositor layer and are consumed there. Active Wayland surface never receives them because asteroid-launcher does not call QWaylandSeat::sendKeyPressEvent() for secondary buttons. Fix location is asteroid-launcher, not the app. Once forwarded, plain QML Keys.onPressed with focus: true works. Proposed canonical mapping: Qt::Key_Context1 as a neutral secondary button key. DeviceSpecs.hasSecondaryButton should be added to qml-asteroid once forwarding is implemented."
+  },
+  "localization": {
+   "pattern": "//% 'String' on line immediately before qsTrId('id-string-name')",
+   "array_strings": "each //% comment must be on its own line immediately before the qsTrId() it annotates",
+   "convention": "toUpperCase at render time — translators write natural case",
+   "pipeline": "lupdate-qt5 to edit .ts to lrelease to .qm compiled into binary",
+   "lupdate_command": "lupdate-qt5 -no-obsolete src/* i18n/appname.desktop.h -ts i18n/appname.${lang}.ts — per the canonical pattern (asteroid-helloworld template) the .desktop.h lives in i18n/. Some older or manually reorganised apps placed it at the repo root; check the actual location before running.",
+   "lupdate_name_tag_bug": "generated .ts files may have <n></n> instead of <name></name> — fix: sed -i 's|<n></n>|<name></name>|g' i18n/*.ts",
+   "lupdate_desktop_h": "for apps with a .desktop.h file, reference it directly by path in lupdate call — glob i18n/*.h fails if file is in root",
+   "lupdate_stacked_comments": "Adjacent //% comments are concatenated by lupdate into a single mangled source string e.g. '//% \"Edit List\"' immediately followed by '//% \"Edit Item\"' produces source 'Edit ListEdit Item'. Each //% comment must sit on its own line directly above its own qsTrId() call — split ternary expressions across lines if necessary.",
+   "lrelease_ampersand_escape": "Bare & in any .ts translation string causes lrelease parse error: 'Expected # or [a-zA-Z], but got space'. All & characters in <translation> and <source> tags must be escaped as &amp; — affects category names like 'Meat & Fish' and 'Baby & Pet'.",
+   "default_category_translation": "Default category names that are stored as user data should use qsTrId() at the property definition site so the active locale is applied on first launch. Once stored in config/files they become user data and are not re-translated on locale change — this is correct behaviour.",
+   "untranslated_literals": "SOS, CQD, XXX, MAYDAY, Emoji, Kaomoji, musical note names, Italian tempo names, Unicode symbols (snowflake etc.) — leave as string literals",
+   "custom_user_strings": "User-editable strings from plain text files are never translated — category keys in custom.txt are always English lowercase regardless of UI language",
+   "ts_files_all_need_new_entries": "When adding a new translated string, add its entry to EVERY i18n/*.ts file, not just the source locale. Other-language files carry the entry with an unpopulated (empty) <translation>; the release flow expects them all present. FlorentRevest, asteroid-flashlight PR #18 (de_DE.ts): 'Other translation files need the new entries too, just not populated with a translation.'"
+  },
+  "startup_performance": {
+   "jit_preloader_implementation": "Confirmed implementation: declare a hidden Item (visible: false) at the root level named 'preloader'. Inside it, place: (1) a Rectangle with a SequentialAnimation running at onCompleted to fire a flash path through the renderer, (2) an Image preloading the main player SVG with a SequentialAnimation on opacity, (3) a NonGraphicalFeedback with event: 'short' played in Component.onCompleted. The hidden Item forces the GPU shader pipeline to compile and the SVG to rasterize before the game scene is shown, eliminating the first-frame stutter. The 'short' haptic event is a side-effect of playing it — the actual warmup goal is the rendering pass. Pattern confirmed in asteroid-dodger v1.5 preloader.",
+   "irreducible_floor": "~700ms — libGLES context creation in vendor driver per Kido profiling",
+   "qml_parse_overhead": "~300ms — AppShell deferred load reduces this for multi-page apps",
+   "measurement_method": "29.97fps video frame count",
+   "mapplauncherd": "already running on AsteroidOS — confirmed via strace at /run/user/1000/mapplauncherd/qt5",
+   "yocto_source_date_epoch": "new Date() in QML at build time reflects SOURCE_DATE_EPOCH (Yocto reproducible builds timestamp — typically the last git commit in the metadata layers). Defaults to a value like 1520598896 (March 2018) that only changes when Yocto layers are upgraded. Without a working RTC, the watch boots at epoch 0 and systemd advances the clock to SOURCE_DATE_EPOCH. This explains why FirstRunConfig date selector presets a date months or years in the past — the RTC default is not a Qt or AsteroidOS bug, it is an expected consequence of Yocto reproducible builds.",
+   "single_page_no_deferred_load": "Single-page apps gain nothing from AppShell deferred loading — declare everything in main.qml directly"
+  },
+  "qt_515_limitations": [
+   "Canvas ctx.shadowColor comma-operator bug: ctx.shadowColor = (r, g, b, a) uses the JS comma operator — evaluates all operands but assigns only the last value (a). Canvas shadows never work when set this way. Correct form: ctx.shadowColor = Qt.rgba(r, g, b, a).",
+   "fastblur_game_overlay_cost: QtGraphicalEffects.FastBlur applied to live game content is prohibitively expensive on AsteroidOS devices — causes severe frame drop during pause/game-over overlay transitions. Confirmed abandoned in asteroid-blaster after testing. Replacement: a plain Rectangle with color '#80000000' (50% opacity black), animated with a 250ms InOutQuad Behavior on opacity. Achieves the visual goal at near-zero GPU cost. Do NOT use FastBlur as a pause or overlay blur effect on game scenes.",
+   "Qt6 ShaderEffect no longer accepts inline GLSL strings for vertexShader/fragmentShader — requires pre-compiled .qsb files from the qsb tool. Any Qt5 code that injects GLSL strings into ShaderEffect.fragmentShader at runtime is architecturally invalid in Qt6 and must be rewritten as a C++ QQuickItem using QShaderBaker.",
+   "QShaderBaker (Qt::ShaderTools module) is the Qt6 runtime GLSL compiler — takes a GLSL string, returns a QShader object in memory without touching disk. Correct tool for user-supplied shaders unknown at build time. NOT appropriate for shaders known at build time (e.g. FlatMesh) where pre-compiled .qsb resources are correct. Requires Qt::ShaderTools to be included in the build — confirm with maintainers before depending on it.",
+   "NumberAnimation duration not settable as property after declaration — bind to page-level property",
+   "property var holding C++-backed QtObject refs unreliable in Connections",
+   "Behavior on visible not supported — use Timer + opacity for fade-then-hide",
+   "ColorAnimation on Text forces rasterization — prefer Rectangle overlay",
+   "Only one Component.onCompleted allowed per QML component",
+   "Multi-line ternary where newline precedes colon silently evaluates only first branch — all ternaries must be single-line",
+   "Behavior on font.pixelSize not supported — snaps only",
+   "SequentialAnimation on a property takes permanent ownership — declarative binding on same property breaks after first run",
+   "Per-corner radius not supported on Rectangle — single radius only",
+   "clip on Rectangle clips to bounding box not to radius shape",
+   "Repeater inside Component not instantiated until createObject — pool pattern preferred",
+   "NumberAnimation onStopped does not fire reliably at zero effective duration — wrap in SequentialAnimation with PauseAnimation { duration: 1 } before ScriptAction",
+   "QML property lookup only walks to file root — child items cannot resolve unqualified property names from intermediate parent Items",
+   "QtPositioning.coordinate() does not deep-copy when passed another coordinate object or its .latitude/.longitude properties — the result may retain a live reference to the source. Workaround: force value snapshot by adding +0 to each component: QtPositioning.coordinate(loc.latitude+0, loc.longitude+0, loc.altitude). The arithmetic coerces the QML binding into a primitive at that instant.",
+   "layer.enabled on a child does not prevent opacity inheritance from parent — to keep child at full opacity while parent fades, make child a sibling not a child",
+   "Conditional anchors (switching between undefined and real targets at runtime) are unreliable — binding engine does not cleanly release anchors. Use two separate items with visibility switching instead.",
+   "property var array mutation (unshift, index assignment) does not emit changed signal — always reassign: arr = arr after mutation to force binding re-evaluation",
+   "Connections deprecated onFoo syntax — use function onFoo() { } syntax in all new code",
+   "OpacityMask forces compositor layer every frame. Acceptable cost when: (1) the alternative requires equally expensive workarounds, (2) Qt likely pays similar internal cost for rounded Rectangle clipping anyway, (3) visual consistency with other components using OpacityMask outweighs the cost. Avoid in tight game loops or high-frequency animations. Confirmed acceptable in IntSelector track after co-maintainer review.",
+   "Qt.createQmlObject Timer antipattern: creating Timers via Qt.createQmlObject inline string injection in functions allocates heap objects requiring explicit destroy() calls, creates double-destroy race risks, and adds GC pressure. Replace with declared static Timer children at root level — start/stop/reset via method calls. Confirmed performance improvement in asteroid-dodger."
+  ],
+  "svg_rendering": {
+   "qt515_svg_static_only": "Qt 5.15 SVG renderer implements SVG Tiny 1.2 only. CSS @keyframes animations are silently ignored — SVG renders at t=0 frame only. No animation cost incurred.",
+   "qt515_svg_no_mask": "<mask> elements are silently ignored in Qt 5.15 — all layers render fully visible. Meteocon-style depth layering (front shape punching hole in back shape) will not render correctly.",
+   "qt515_svg_use_unresolved": "<use> elements referencing single-letter IDs in <defs> (e.g. #b, #d) produce 'qt.svg: link #b is undefined' errors in journald and render nothing. Flatten SVGs with Inkscape before deploying. Confirmed failure: meteocon SVGs on catfish.",
+   "inkscape_1x_flatten_command": "inkscape --actions='select-all;clone-unlink;object-to-path' --export-type=svg --export-filename=out.svg in.svg — flattens <use> references into inline geometry. Note: pre-1.0 Inkscape uses --verb and --export-plain-svg (deprecated). Actions-based syntax is 1.x only.",
+   "chromium_headless_svg_frame": "chromium --headless --screenshot --virtual-time-budget=N --window-size=W,H --default-background-color=0 'file://path.svg' — seeks CSS animations to Nms before capture. Only viable tool for exporting a specific animation frame without npm.",
+   "qt67_svg_mask_support": "Qt 6.7 adds <mask> and <filter> element support to QtSvg — meteocon-style depth masking renders correctly from 6.7 onwards.",
+   "qt610_svg_animation_support": "Qt 6.10 adds CSS @keyframes animation support to QtSvg for transforms, colors and opacities — full animated meteocon rendering requires Qt 6.10+.",
+   "qt612_lts_eta": "Qt 6.12 is the next LTS after 6.8 (every 4th minor = LTS). Expected ~late 2026. First version combining mask support + CSS animation + LTS stability.",
+   "domain": "platform",
+   "confidence": "confirmed"
+  },
+  "networking": {
+   "ssl_clock_dependency": {
+    "description": "Qt XMLHttpRequest HTTPS connections fail silently with status:0 and onerror if the system clock is significantly wrong. SSL certificate validation requires the clock to be within the certificate validity window. Ping succeeds (ICMP, no SSL) while HTTPS fails — this asymmetry is the diagnostic. Fix: set system clock correctly via NTP or ssh date sync. On freshly flashed devices before first NTP sync the clock may be wrong causing all HTTPS requests in QML to fail. openssl s_client will succeed even with wrong clock in some builds — do not use it as the definitive SSL diagnostic.",
+    "diagnostic_command": "ssh root@watch 'date -u'",
+    "fix_command": "ssh root@watch \"date -s @$(date -u +%s)\"",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   },
+   "rubyfish_qt_network_broken": {
+    "description": "rubyfish (TicWatch Pro 3) 2.1 release build has a broken Qt network stack — HTTPS XMLHttpRequest fails with status:0 despite openssl s_client succeeding, CA certs present, and correct system clock. find /usr/lib/qt5 returns no such directory on rubyfish while the same command on catfish nightly returns Qt plugin paths. Probable cause: missing Qt TLS plugin in the rubyfish image. Reported to MagneFire who maintains the rubyfish port. Not a code issue — store functionality confirmed working on catfish, beluga, and sparrow with correct clock.",
+    "domain": "platform",
+    "confidence": "confirmed-on-device"
+   }
+  },
+  "community_links": {
+   "main_repo": "https://github.com/AsteroidOS",
+   "meta_community": "https://github.com/AsteroidOS/meta-asteroid-community",
+   "all_open_issues": "https://github.com/issues?q=is%3Aopen+is%3Aissue+org%3AAsteroidOS",
+   "all_open_prs": "https://github.com/issues?q=is%3Aopen+is%3Apr+org%3AAsteroidOS"
+  },
+  "usb_host_side": {
+   "_captured": "2026-07-12, from the asteroid-docking-bay sessions (host-side USB power management for watch fleets)",
+   "kernel_per_port_power": "The kernel exposes per-port hub power directly: /sys/bus/usb/devices/<hubloc>:1.0/<hubloc>-port<N>/disable (write 0=on, 1=off) — a single targeted operation. uhubctl by contrast re-enumerates the whole USB tree via libusb on EVERY invocation (5-13s on a deep cascade) and its concurrent scans race adb's libusb use. Rule of thumb: sysfs for the hot switching path, uhubctl for discovery/mapping only. Read-back of the disable attr does a live GetPortStatus (honest), but registers can't see everything: physical per-port buttons on some hubs (RSHTech A16) cut VBUS below all software visibility — register says on, port is dark; LEDs are the truth there. Per-port over_current_count sysfs attrs exist for real OCP diagnosis.",
+   "port_off_on_needs_cycle": "Hubs are not guaranteed to raise a connect event after a plain off->on write; a stale dark node can block re-enumeration. A single-invocation power CYCLE (uhubctl -a cycle, or sysfs off/sleep/on) makes the hub signal properly — this is the stale-node recovery primitive.",
+   "udev_rootless_pattern": "Rootless port switching: udev rule with GROUP=\"users\" + TAG+=\"uaccess\" for device access (plugdev does NOT exist on Arch-family distros — a rules file using it silently does nothing), plus a RUN+= that chgrp/chmods each hub port's sysfs disable attr on hub add. 'udevadm trigger --action=add' applies to already-plugged hubs. Gotcha: group membership needs a FULL re-login — long-running systemd user managers keep the old group set, so services stay in fallback until logout/login.",
+   "adb_server_binding": "The adb server binds 127.0.0.1:5037 only. Containers cannot reach the host adb server via host.containers.internal (confirmed by probe); `adb -a` would listen on the LAN (usually the wrong trade). ADB_SERVER_SOCKET=tcp:HOST:PORT redirects a client. In containers, running adb inside (with /dev/bus/usb passed through) is the clean default; AsteroidOS watches being auth-less makes the second keyring free.",
+   "adb_devices_l_parsing": "`adb devices -l` extras (usb:PATH product: model: device: transport_id:) give the physical USB path per serial — a genuine host-side mapping upgrade. Parser trap: daemon-restart notices ('* daemon started...') appear BEFORE the 'List of devices attached' header; naive line-splitting turns them into bogus device entries. Skip to the header and ignore '*' lines.",
+   "podman_gotchas": "(1) ReadOnly rootfs + podman secrets conflict: the default /run/secrets mountpoint cannot be created on a read-only rootfs — target the secret into /tmp (tmpfs) instead: Secret=name,type=mount,target=/tmp/name. (2) A Python process as container PID 1 gets no default signal dispositions — without an explicit SIGTERM handler every stop burns the runtime's 10s kill timeout. (3) Rootless container port-forwards (pasta/slirp) squat host ports invisibly for months — a service failing EADDRINUSE on 8080 should check `ss -tlnp` for pasta.",
+   "enumeration_storm": "Powering many watch ports simultaneously (e.g. a 16-port hub cycling to all-on) causes an enumeration storm; historically wedged the adb server on a 5-chip RTS5411 cascade (0.3 era), though a 5-watch storm passed cleanly on the 0.4/0.5 stack. Staggered power-on remains the safe pattern for large fleets. uhubctl is AUR-only on Arch-family (not in repos).",
+   "adb_server_wedge_and_interface_detection": "The host adb SERVER can WEDGE — list nothing from `adb devices` while watches are still enumerated on the USB bus (seen live 2026-07-24 on the w541 rig: powered ports, LEDs lit, watches present in sysfs, adb blind; the whole fleet looked dead). `adb kill-server && adb start-server` recovers it. To DETECT the wedge independently of the server, read the bus from sysfs: a watch offering adb advertises the standard Android ADB USB interface — a `{devpath}:*` interface dir with bInterfaceClass=ff, bInterfaceSubClass=42, bInterfaceProtocol=01. Key on THAT, not on idProduct: the fleet enumerates adb as 18d1:d001 (TicWatch Pro / Triggerfish / ASUS ZenWatch 2 all confirmed), NOT the 0a03 that usb_moded/dyn-modes and older detectors assume (0a02 is developer_mode/SSH). So a self-heal that counts 'adb-mode devices in sysfs the server can't see' must use the interface signature. a-d-b's warmer now does this (audit A2), guarded: wedge must persist across two 5s checks (avoid racing a just-plugged watch) and restarts at most once/60s (a restart briefly drops every watch).",
+   "drain_no_suspend_launcher_pulseaudio": "ROOT-CAUSED 2026-07-24 on the w541 rig: watches that historically held 6-8 DAYS standby drained in 2-4 HOURS (22-36%/h) with the SCREEN OFF. NOT AoD (mcetool showed Display state=off, Blank inhibit=disabled), NOT the speaker (fast-drainers HAS_SPEAKER=true; no-speaker hypothesis disproven), NOT a-d-b. Cause: asteroid-launcher holds an open pulseaudio SINK-INPUT, so `pactl list short sinks` shows sink.primary RUNNING (not SUSPENDED) even on an idle screen-off watch; a running sink keeps the audio DSP/hardware clocked, which blocks SoC suspend → the SoC never enters LPM and drains at ~display-on rates. module-suspend-on-idle is loaded but cannot idle a sink that has a live stream. This is the 'pulseaudio won't let it sleep' / Qt6-migration issue — a shared-code (asteroid-launcher / pulseaudio) matter for the maintainers, not a per-device or docking-bay bug. Diagnostic recipe: on the watch (su ceres, XDG_RUNTIME_DIR=/run/user/1000) `pactl list short sinks` (RUNNING=awake), `pactl list short sink-inputs` (shows the launcher's stream), and `cat /sys/kernel/debug/wakeup_sources | awk '$9>0'` (mce_cpu_keepalive held). IMPLICATION for any drain/battery measurement: a drain test on such a watch measures the no-suspend rate, not standby — fix the launcher sleep bug before trusting standby numbers.",
+   "hub_power_budget_brownout": "ROOT-CAUSED 2026-07-23 with live a-d-b data on the A16-class 16-port USB-A hub: it browns out at ~8 powered watches (8th flaky, 9th hard-fails) — powered ports register on but watches can't boot/enumerate, and watches that were already up DROP as more ports are energised. a-d-b's usb_volt is the diagnostic: healthy ports ~5.06V, loaded ports sag to 4.30V, some float ~6.0V, some collapse to ~0V (watch then runs on battery, invisible). The 4.3-6.0V spread = weak/absent internal 5V regulation. PSU RULED OUT: 12V/8A/96W brick runs cool/barely-loaded, so the hub draws only ~15-25W total and chokes current in its own 12V->5V converter + 5V distribution + per-port switches, delivering ~a quarter of its '60W' sticker. Per-watch ~2W idle but boot/display/radio/charge transient is 2-4x that, so the POWER-ON spike (not steady state) tips the rail -> power on ONE AT A TIME. Rules: ~7-8 watches/hub hard ceiling; split across INDEPENDENT hubs for more concurrency; a browned watch's drain data is garbage. a-d-b reads usb_volt already, so a brownout guard (warn on VBUS<~4.6V across powered ports; refuse the Nth) is cheap. This is the resolution of the long-running 'dock quirks = brownout?' thread: the hub's 5V stage is the limit, not the PSU or the watches."
+  },
+  "device_screen_geometry": {
+   "source_of_truth": "qml-asteroid DeviceSpecs (src/utils/src/devicespecs.cpp) reads /etc/asteroid/machine.conf as a QSettings IniFormat file. This is THE canonical per-device spec source — a freshly ported watch ships it, so read it over adb instead of maintaining any per-codename table on the host side.",
+   "machine_conf_keys": "[Display] ROUND (bool -> hasRoundScreen), FLAT_TIRE (int px chin height, 0=none, Moto360-style), BORDER_GESTURE_WIDTH (float, default 0.1), NEEDS_BURN_IN_PROTECTION (bool). [Capabilities] HAS_WLAN, HAS_SPEAKER, HAS_MIC (bool; absent == false, so a watch can have a mic but no speaker). [Identity] MACHINE (the codename). Also /etc/hostname and /etc/os-release BUILD_ID are read by DeviceSpecs.",
+   "resolution_source": "Use /sys/class/graphics/fb0/modes ('U:360x360p-2640' -> regex \\d+x\\d+ = true panel resolution). Do NOT use /sys/class/graphics/fb0/virtual_size: it is DOUBLE-BUFFERED (reports 360,720 for a 360x360 panel), so its height is wrong. Confirmed live on skipjack 2026-07-17: machine.conf ROUND=true, MACHINE=skipjack; modes=360x360; virtual_size=360,720.",
+   "why_it_matters": "Lets a fleet/host tool determine screen shape (round/square/flat-tire) and true resolution for masking screenshots (round->circle) and for distinguishing same-shape watches by size that a codename cannot: tunny 400 vs skipjack 360 (both round); belugaxl 476x402 vs beluga 320x360 (belugaxl runs the beluga image, so codename is ambiguous but the live resolution disambiguates). There is no canonical published AsteroidOS resolution table, so reading fb0/modes is the reliable way to verify actual resolution, including on freshly ported unknown watches.",
+   "found_by": "asteroid-docking-bay 0.7 screen-geometry feature, 2026-07-17 (mo + Claude). Reading the file on-watch over adb is fine; this is NOT patching qml-asteroid."
+  },
+  "usb_mode_switch_and_ssh": {
+   "summary": "AsteroidOS USB gadget mode is controlled by usb_moded. Switch it with `usb_moded_util -s <mode>` (adb_mode / developer_mode / mtp_mode / charging_only). adb_mode enumerates idProduct 0a03; developer_mode (SSH) enumerates 0a02. The shipped default boot mode was recently changed to adb_mode (releases are for users; devs toggle).",
+   "usb_ssh_reachability": "CONFIRMED live on the w541 rig 2026-07-18: switch a watch adb->developer_mode via `adb -s SER shell usb_moded_util -s developer_mode`; after ~9s the host gets an rndis link (host side 192.168.2.1) and the watch is reachable at root@192.168.2.15 (fixed /24, ONE such watch at a time). `ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes root@192.168.2.15 '<cmd>'` runs commands on the watch (root, key-based, no host network setup needed — the earlier 'needs DHCP/host setup' claim was a stale glitch). Switch back with `ssh root@192.168.2.15 usb_moded_util -s adb_mode`, or a port power-cycle reboots to the adb_mode default (so a stranded-SSH watch self-recovers).",
+   "adb_vs_ssh_transport": "For a host-side fleet tool, adb and ssh are interchangeable transports: `adb -s SER shell X` and `ssh root@IP X` both forward the SAME quoted remote command X to a shell on the watch, so a Transport abstraction only swaps the prefix (files: adb pull/push vs scp -r). asteroid-docking-bay 0.8 does exactly this (transport.py) — every Watch feature works over either link. Two SSH kinds: USB-SSH (192.168.2.15 over rndis) and WiFi-SSH (the watch's WiFi IP); both can be active at once.",
+   "remote_command_quoting_trap": "adb_shell and SshTransport.shell run with shell=True on the HOST, so any remote command containing a glob, pipe, redirect or ';' MUST be passed as one double-quoted string (f'\"{cmd}\"') or the host shell parses it: pipes/redirects execute host-side and globs expand against the HOST's /sys before adb/ssh ever forwards to the watch. Bitten TWICE in a-d-b, both caught only on hardware: (1) battery_and_screen's `mcetool | grep` pipeline ran mcetool on the host, so a stuck screen read 'fine'; (2) get_battery_level grew a `nanohub_fuelgauge-*` glob (921b713, 2026-07-13) that the host expanded to its own BAT0, handing the watch a path it lacked — the read returned None and silently broke drain-start AND the charge loop for 11 days, while the UI stayed fine because it reads over the already-quoted battery_and_screen path. The failure was FLAKY not blanket: an unmatched host glob is kept literal and a host-side `| head -1` grabs whichever of the watch's error line vs digit arrives first, so some watches read fine and others returned None. Rule: quote any remote pipeline as a unit, and unit-test it by asserting the command handed to the shell starts and ends with '\"' — a path-priority or output-parse test does NOT catch host-side leakage, which is exactly what let (2) ship. Fixed 2026-07-24 (a-d-b 0.9).",
+   "status": "confirmed live 2026-07-18 (a-d-b 0.8 SSH transport work)",
+   "adb_vs_ssh_performance": {
+    "observation": "SSH-over-USB is dramatically slower than adb for the same per-watch operation — mo measured opening the Control Center in SSH mode ~5x slower than in adb mode (2026-07-22).",
+    "cause": "asteroid-docking-bay's SshTransport runs a fresh `ssh {opts} root@<ip> <cmd>` per call, so every command pays a full TCP + SSH handshake and key exchange. adb reuses one persistent daemon connection, so its per-command overhead is near zero. The Control Center is one batched shell script, so it is a single ssh handshake — but that one handshake still dominates versus adb's warm channel.",
+    "consequence": "SSH is a correct FULL functional replacement for adb (Control Center, toggles, poweroff all work over it — see _reachable_transport / _watch), but it is not a performance equal. Prefer adb when both are available; SSH is the fallback for a watch deliberately in developer mode or when only the WiFi/rndis link is up.",
+    "future_optimization": "SSH ControlMaster + ControlPersist would multiplex a persistent connection and amortise the handshake across calls (add `-o ControlMaster=auto -o ControlPath=... -o ControlPersist=30s` to _SSH_OPTS). Not yet done — noted as the obvious speedup if SSH-mode usage grows.",
+    "confidence": "confirmed-observation (mo, live)",
+    "verified_date": "2026-07-22"
+   },
+   "usb_ip_assignment": {
+    "summary": "The rndis/SSH address is set with usb_moded_util -n set:ip,<addr>. CONFIRMED live on skipjack 2026-07-22: the IP does NOT change under a live SSH/developer session — set:ip only takes effect on the next transition INTO developer_mode. So it must be set while the watch is on adb, then applied by switching to developer_mode.",
+    "why_it_matters": "Every developer_mode watch defaults to the SailfishOS-inherited 192.168.2.15, so two watches switched to SSH on one rig collide on the same address across different host interfaces and become unaddressable. asteroid-docking-bay 0.8 hands each serial a sticky unique IP from 192.168.13.37 (LEET) via allocate_ssh_ip, set over adb inside the watch.switch_ssh op before the switch.",
+    "relocation_is_a_round_trip": "Moving a watch already stranded on the shared 192.168.2.15 onto its unique IP cannot be done in place (IP frozen under live SSH). It is a round-trip built from two existing ops, no new device code: _switch_ssh_to_adb(.15) -> wait for adb -> watch.switch_ssh(serial) (allocate + set:ip + developer_mode). Verified end-to-end on skipjack: .15 -> 13.37, .15 freed, net-zero.",
+    "stray_detection": "A watch in SSH mode whose ssh_ip_for_serial is None MUST be on the default .15, because a non-default IP only exists via allocate_ssh_ip inside switch_ssh. So SSH-mode + no allocation cleanly identifies an accidental stray vs a deliberately-switched watch (always allocated) — no network probe needed. a-d-b auto-aligns strays to the usb_mode_preference toggle (webstatus._maybe_align_usb_mode), guarded like the fake-power self-heal.",
+    "open_question": "Whether set:ip persists across a watch REBOOT is unverified as of 2026-07-22 — deferred as an acceptable exception since the auto-align catches a reverted watch on its next poll.",
+    "confidence": "confirmed live on skipjack (a-d-b 0.8 SSH-IP work)",
+    "verified_date": "2026-07-22"
+   }
+  },
+  "geoclue1_location_stack": {
+   "provider_reference_leak_and_coldstart_bug": {
+    "description": "AsteroidOS ships geoclue1 (0.12.99, Garmin/OpenedHand 2007-08, dead upstream, dbus-glib) because geoclue2 dropped out-of-process providers, which watch-specific GPS daemons (e.g. dodoradio's casiowsd) need. The geoclue1 master daemon was abandoned mid-refactor and has NO working provider dereference path: GcMasterClient Add/RemoveReference are TODO no-ops, the master never destroys client objects nor watches app bus names, and the provider shutdown in gc_master_provider_unsubscribe() is commented out (master-provider.c:1073). Net effect: once the master references a GPS provider it never sends RemoveReference, so the provider refcount (keyed to the master's own never-dying bus name) never empties and the GPS module stays powered forever after the app exits.",
+    "second_latent_bug": "Re-enabling the shutdown exposes a cold-start bug: gc_master_client_get_best_provider() unsubscribes ALL candidates when none is AVAILABLE yet - a cold-starting GPS is in ACQUIRING, so the master kills it within a second of starting it (field-observed: activate -> options -> 'shut down casiowsd' in one journal second). This is why the 2008 author disabled shutdown instead of fixing selection; their own TODO admits it. Fix: keep not-yet-available candidates subscribed so status-changed re-triggers selection on fix acquisition.",
+    "fix": "Cumulative patch (field-tested on medaka 2026-07-19: cold start acquires AND provider shuts down on app close): real per-sender refcounting on GcMasterClient mirroring gc-provider.c, NameOwnerChanged watch for crashed apps, client self-destruction at zero refs (idle-deferred), re-enabled deinitialize, and no-unsubscribe-while-waiting in get_best_provider. Needs dbus-glib >= 0.90. Patch: mo ~/Git/geoclue1-master-refleak_v2.patch; to be carried in the distro geoclue recipe.",
+    "design_rules_for_any_replacement": "Two MUSTs any location middleware (e.g. the proposed geovibe2.5 geoclue2 fork) must encode and planted-bug-test: (1) a provider MUST keep running while ACQUIRING if any client waits on it; (2) a provider MUST power down when its last referencing client leaves the bus, politely or by crashing. Keep geoclue2's client wire API so Qt's stock geoclue2 position plugin works unmodified; innovate only on the provider-plugin side.",
+    "domain": "platform",
+    "confidence": "confirmed-on-device (medaka, 2026-07-19)"
+   }
+  },
+  "qt6_build_infrastructure_lessons": {
+   "note": "Hard-won 2026-07-18/19 during the first full skipjack qt6 image builds on the refreshed w541 (Arch host). All confirmed through repeated full builds.",
+   "buildtools_mandatory_on_modern_hosts": "Bare-metal walnascar builds FAIL on hosts with gcc 16 (cannot compile gcc-cross 14.3's libcody: C++20 char8_t mismatch). Fix: Yocto buildtools-extended tarball (src/oe-core/scripts/install-buildtools, source its environment-setup BEFORE prepare-build.sh, every invocation). Bonus: buildtools ships its own CA bundle - the w541's broken host cert store made every AUTOREV git ls-remote fail with 'SSL certificate problem', which MASQUERADES as random per-recipe parse ExpansionErrors and was misdiagnosed as GitHub rate limiting until the full error text was read. Rule: always read the complete fetcher error before theorizing.",
+   "cmake_native_libidn2_walnascar_backport": "cmake-native fails do_compile under buildtools when the host has libidn2 (CMake finds /usr/lib/libidn2.so + records /usr/include, then omits -I/usr/include as 'implicit' - wrong for a sysrooted compiler). Upstream fix 861eaeb79f (-DCMAKE_DISABLE_FIND_PACKAGE_Libidn2=ON) exists on master/wrynose but NOT walnascar. CRITICAL: walnascar's cmake-native takes configure args via CMAKE_EXTRACONF, not EXTRA_OECMAKE (the variable the upstream fix patches in 4.3.1) - appending to the wrong variable does not even change the taskhash.",
+   "systemctl_native_pam_contamination": "systemd-systemctl-native fails do_compile under buildtools on hosts shipping PAM headers in /usr/include (Arch does; Debian's -dev split hides it): meson probes find host PAM, sysrooted compiler cannot include security/pam_ext.h. Fix: EXTRA_OEMESON += \"-Dpam=disabled\" (PAM is irrelevant to the native systemctl helper). No upstream fix as of 2026-07 - reportable to oe-core.",
+   "image_install_append_is_global": "IMAGE_INSTALL:append in local.conf applies to EVERY image recipe including initramfs-android-image - appending apps bloated the initramfs from ~40MB to 217MB and failed INITRAMFS_MAXSIZE. Always scope: IMAGE_INSTALL:append:pn-asteroid-image.",
+   "autorev_pathologies": "AUTOREV failure modes observed in one night: (1) mid-build upstream movement re-resolves the rev and can silently orphan workdir overlays; (2) parse-time git ls-remote storms (~200 recipes) make every bitbake invocation network-dependent and slow; (3) any transient TLS/network failure kills the whole parse with cryptic ExpansionErrors. Mitigations: BB_SRCREV_POLICY = \"cache\" in local.conf (reuse last successful resolution), BBMASK for recipe groups not in play, and ultimately pinned SRCREVs (project rule).",
+   "fish_login_shell_cannot_source_yocto": "prepare-build.sh requires bash/zsh as the SOURCING shell; fish parses it with fish grammar and dies (also inside tmux windows, whose default-shell is the login shell). Wrap all remote build work: ssh host bash -s <<'EOF' and tmux new-session \"bash /abs/script.sh\".",
+   "domain": "platform",
+   "confidence": "confirmed (multiple full image builds, w541 2026-07-19)"
+  },
+  "qt6_app_port_checklist": {
+   "note": "Mechanical checklist distilled from porting 9 community apps in one pass (2026-07-19); compile-verified against qt6 sysroot, image-integrated. Runtime verification per app still applies.",
+   "cmake": "find_package(AsteroidApp6 REQUIRED); include(Asteroid6CMakeSettings) + include(Asteroid6Translations); link Asteroid::AsteroidApp6 (namespaced export - bare AsteroidApp6 does not exist); find_package(Qt5...) -> Qt6. Invoker wrapper .in files: --type must be asteroid-qt6 (NOT qt6 - the booster type was renamed in the mapplauncherd-booster-asteroid migration; stale qt6 makes .so apps unlaunchable with misleading fallback-booster errors, field-confirmed on skipjack 2026-07-19). Note asteroid-gps-test PR #6 carries the stale type.",
+   "qml_imports": "Strip ALL version numbers. Module renames: org.nemomobile.systemsettings -> org.asteroid.settings (old URI gone from qt6 images); QtGraphicalEffects -> Qt5Compat.GraphicalEffects.",
+   "cpp_api_removals": "QTextStream::setCodec removed (Qt6 defaults UTF-8 - just delete the calls). Also grep QRegExp/QStringRef/qrand/QTextCodec. mo's copy-pasted FileHelper.cpp existed in 3 repos with setCodec in 2.",
+   "strict_int_coercion_scan": "grep imperative writes to declared property int where RHS contains Math.*() or division; append | 0. Plain int arithmetic (score += 10) is safe - V4 keeps int-tagged values int; Math.* returns double-tagged even for whole numbers.",
+   "shaders": "Inline GLSL strings crash Qt6. Rewrite fragments in Vulkan-style GLSL (#version 440, std140 ubuf with qt_Matrix/qt_Opacity first, members matched to QML properties by name), bake with qsb --glsl \"100 es,120,150\" --hlsl 50 --msl 12, ship .qsb in qrc, reference by relative URL. Passthrough custom vertex shaders (qt_MultiTexCoord0->coord) are exactly Qt's default vertex shader - delete them. ALWAYS commit the .frag source next to the .qsb with the bake command in its header (project rule).",
+   "sounds": "QtMultimedia SoundEffect on Qt6 = chopped playback + permanently-open pulse sink (battery drain, launcher PR #270). Convert to Nemo.Ngf NonGraphicalFeedback: app ships its own event .ini files (\"[event-name]\" section, sound.filename, sound.repeat=true for loops) installed to /usr/share/ngfd/events.d + FILES:${PN} += /usr/share/ngfd/. ngf has no 'playing' property - track a local bool with single-writer start/stop helpers. ngfd needs a restart after installing new event files. Latency caution for rhythm-critical sounds (metronome) - verify on device.",
+   "domain": "platform",
+   "confidence": "confirmed-compile, runtime pending (2026-07-19)"
+  },
+  "device_flashing": {
+   "simg_when_in_doubt": "WHEN IN DOUBT, SIMG. Some watches will NOT boot from a raw ext4 flashed to userdata and need an Android sparse image instead. Known simg-required devices: medaka, tetra, pike, mooneye (raw ext4 gives the AsteroidOS logo briefly then a black screen with no adb/ssh; medaka confirmed 2026-07-23). Most other watches (e.g. skipjack) take a pure raw .ext4 directly. Convert with `ext2simg <rootfs.ext4> <rootfs.simg>` (or the fs-agnostic `img2simg`), then `fastboot flash userdata rootfs.simg`. Always worth a test when a freshly flashed watch will not boot.",
+   "why_device_specific": "It is a per-device bootloader/partition property, NOT the image size: medaka/tetra/pike/mooneye require the sparse format for a correct userdata write, while skipjack-class devices accept raw ext4 directly. (fastboot does auto-sparse any image that exceeds the device max-download-size, shown as `Sending sparse 'userdata' 2/3 …`, but that is only a transfer-chunking detail and is not why these four need simg.) The sparse flash also reports `skip copying userdata image avb footer due to sparse image`.",
+   "sparse_format": "Android sparse (simg) is a container describing the fs as chunks — RAW (real data), FILL (a repeated value such as a run of zeros stored as one record), DONT_CARE (unallocated). It never stores zero runs literally, so it is smaller and is the format device flashing expects. simg2img reverses it; not directly mountable.",
+   "beluga_is_a_separate_case": "BELUGA IS DIFFERENT and is NOT a simg case — do not lump it with skipjack. Beluga has an ENCRYPTED HOME and needs a special flash procedure to circumvent it (dodo): enter fastboot, `fastboot -w` (wipe userdata/cache), reboot, then the device prompts to push asteroidos.ext4 via adb. dodo's phrase 'medaka has a beluga-like install' referred to THIS procedure; it turned out medaka does NOT need it and flashes like any normal watch. Keep beluga's encrypted-home procedure separate from the simg-vs-raw-ext4 axis.",
+   "medaka_install": "medaka (dodo's Casio port) flashes like a normal watch: convert the rootfs to .simg and `fastboot flash userdata rootfs.simg`, then reboot — NOT the beluga procedure. Enter fastboot: top button, hold the middle button until the screen goes white, then release middle while holding top.",
+   "added": "2026-07-23, mo ninja'd the simg fix flashing dodo's medaka port; beluga/skipjack conflation corrected per dodo + mo"
+  },
+  "nemo_configuration_dconf_types": {
+   "issue": "Writing AsteroidOS Nemo-Configuration (MGConfItem/ConfigurationValue) keys over `dconf write` from a host must match the gvariant TYPE the QML expects, or the value reads back empty/absent. Cost a real debugging session (docking-bay 2026-07-23).",
+   "scalars": "bool/int/string keys (e.g. /org/asteroidos/settings/use-12h-format, .../burn-in-protection-level) are bare: `dconf write /key true` | `... 30` | `... \"'text'\"`. Fine as a{sb}-style bare literals.",
+   "dicts": "A DICT key is stored as a QVariantMap = gvariant a{sv} (variant-WRAPPED values), NOT a{sb}. Write `dconf write /desktop/asteroid/quickpanel/enabled \"{'lockButton': <true>, 'musicButton': <false>}\"` (angle-bracket <> around each value). A plain a{sb} `{'x': true}` write reads back EMPTY in the launcher -> QuickPanel builds an empty panel. Verified both directions on skipjack.",
+   "read_parse": "When PARSING a `dconf dump` of such a dict, accept the <...> wrapper: regex `'([^']+)'\\s*:\\s*<?(true|false)>?`. An a{sb}-only parser reads every value as absent and the UI shows defaults over the real state.",
+   "defaults_gap": "There is NO GSettings SCHEMA on the watch for /org/asteroidos/settings/* (verified: `gsettings list-schemas | grep asteroid` = nothing). So `dconf read` returns EMPTY for any key still at its default and `gsettings get` fails; the effective default lives in the asteroid-settings QML `defaultValue` and must be baked host-side. (Weather keys DO have a schema: org.asteroidos.weather + .dayN.)",
+   "session_bus": "dconf as the watch UI user needs its session bus: as ceres run with `XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus HOME=/home/ceres`. From root adb: `su ceres -c '<env> dconf ...'`.",
+   "domain": "platform",
+   "confidence": "confirmed"
+  },
+  "narwhal_hands_movement": {
+   "device": "narwhal (LG Watch W7) has a physical soprod movement exposed at /sys/devices/sop716/ (i2c soprod_movement). Only current hands-watch in the fleet.",
+   "set_hands": "To MOVE the hands, write a local datetime `YYYY-MM-DD HH:MM:SS` to /sys/devices/sop716/time as root; the movement driver follows it. This is exactly what dodoradio's narwhal-hands-timesync writes (Qt ISODate date + TextDate time). tz_minutes = offset/60 to /sys/devices/sop716/tz_minutes. init.rc also writes motor_move_all \"45:135\" at boot (raw homing) and chmods motor_move* to 222 (write-only), position to 444 (read-only).",
+   "motor_move_all": "DECODED ON HARDWARE 2026-07-23 (supervised bench test on narwhal <serial>, mo eyeballing): `echo \"M:H\" > /sys/devices/sop716/motor_move_all` (write-only). Format is minute:hour (M drives the MINUTE hand, H the HOUR hand — confirmed by moving one field at a time). Each value is 0..179 = ABSOLUTE angle at 180 units per full revolution (1 unit = 2 degrees, 3 units = one minute-mark). It is ABSOLUTE and RE-SYNCS the counter: after the write, /sys/devices/sop716/position reads back exactly the written value, and the physical hands go there — so a single motor_move_all is the RE-HOME that cures open-loop timepiece-mode drift (no minute-nudge needed). There is a small fixed motor-zero offset (value 0 landed both hands ~17-18 min-mark, not 12 o'clock) and NO minute snap — resolution is sub-minute (2 deg), hands rest between ticks. min-mark ~= (offset + value/3) mod 60. init.rc homes to \"45:135\" at boot. Choreography = sequence motor_move_all writes (independent hands: corners/sweep/scissor), then a `time` write to restore the clock. motor_init/reset/motor_move also exist (write-only, chmod 222) but were not needed once motor_move_all proved absolute+resyncing.",
+   "position_read": "/sys/devices/sop716/position reads the driver's tracked hand position as `M:H` (same minute:hour unit as motor_move_all, 0..179 each). It is the driver's OPEN-LOOP counter, not a sensor read — in timepiece mode (low battery, no OS) the MCU steps the hands with no feedback and the counter DRIFTS from the physical hands (observed 3h+ off: counter 87:82 while hands at 20:42). So a bare position read is unreliable for a real-vs-ideal readout UNTIL a motor_move_all write re-syncs it (after which position == the commanded value and matches physical). Other files: battery_level (mV), time, tz_minutes, watch_mode (1 at boot), version, self_test, aging_test.",
+   "domain": "platform",
+   "confidence": "set_hands + motor_move_all format/unit/absolute-resync CONFIRMED on hardware 2026-07-23 (supervised, mo eyeballing); exact motor-zero offset approximate (no minute snap)"
+  },
+  "weather_dconf_integration": {
+   "issue": "Host-side weather sync to a watch: fetch weather and write the watch's weather dconf so its weather app + launcher Today screen show it. Reference: Ed Beroset's asteroid-weatherfetch (GPL-3.0), which runs ON-device; a fleet manager writes the same keys over adb/ssh.",
+   "keys": "/org/asteroidos/weather/city-name (string), .../timestamp-day0 (int epoch s = date of day0), .../day{0..4}/id (int OWM condition code), .../day{0..4}/min-temp + max-temp (int KELVIN). Up to 5 days, ONE timestamp; the watch consumes day0..day4 as days pass and hides weather when >5 days old. GSettings schemas org.asteroidos.weather + org.asteroidos.weather.day0..day4 ARE installed on the watch.",
+   "units": "Watch reads celsius = K - 273 (INTEGER 273), so write round(C)+273. Do NOT copy Beroset's 272.15 constant (0.5-1 deg low).",
+   "condition_code": "Store an OWM code in .../id (the watch icon maps are OWM-keyed). Open-Meteo returns WMO codes -> translate WMO->OWM (Beroset's iconlookup table; captured in docking-bay weather.py _WMO_TO_OWM). Icon maps: launcher Today weathericons.js (ios-*-outline), watchfaces (ios-*), weather app icons.js (meteocon-*), all in asteroid-icons-ion.",
+   "api": "Open-Meteo is keyless: forecast https://api.open-meteo.com/v1/forecast?latitude=&longitude=&timezone=auto&daily=weather_code,temperature_2m_max,temperature_2m_min ; geocoding https://geocoding-api.open-meteo.com/v1/search?name=CITY (city -> lat/lon).",
+   "domain": "platform",
+   "confidence": "confirmed end-to-end on skipjack"
+  },
+  "device_recovery": {
+   "mooney_ticwatch_fastboot_combo": {
+    "device": "The Ticwatch worked on in the pike/mooney bring-up (asteroid-launcher session 016f1bbc); on-screen logo is Ticwatch, moWerk calls it mooney/mooneye. VERIFY exact codename/model before any public doc.",
+    "combo": "From COLD/off: hold two fingers on the screen diagonally (top-left + bottom-right) AND press-and-hold power. When power comes on, the Ticwatch logo appears and a LONG vibration starts. DURING that vibration do a power-button release-then-press (and/or waggle the two fingers up/down). All together -> fastboot screen.",
+    "provenance": "moWerk manually reverse-engineered it (~90 min), 2026-07. Previously undocumented anywhere.",
+    "wiki_correction": "The AsteroidOS wiki wrongly claims a 'diagonal SWIPE' triggers FB-mode. That is a misread of the two-finger diagonal HOLD (top-left + bottom-right) + power/vibration dance — a hold, not a swipe. A community contributor was asked 2026-07 to double-check and fix the entry.",
+    "confidence": "combo confirmed on-device by moWerk; exact device codename to verify"
+   }
+  },
+  "yocto_host_contamination": {
+   "principle": "Yocto's host isolation covers INCLUDE paths more thoroughly than LINKER SEARCH paths. A find_package/meson probe that looks for a library can therefore succeed against the HOST library while the matching header stays invisible — configure passes and the COMPILE dies on a missing header. Suspect this shape whenever a -native recipe fails on a header for a library the host happens to have installed.",
+   "known_cases": {
+    "cmake-native / libidn2": "Vendored curl does an unconditional set(USE_LIBIDN2 ON) then find_package(Libidn2); an Arch host has libidn2 by default. Fix in build/conf/local.conf: CMAKE_EXTRACONF:append:pn-cmake-native = \" -DCMAKE_DISABLE_FIND_PACKAGE_Libidn2=ON\"  — MUST be CMAKE_EXTRACONF, NOT EXTRA_OECMAKE: cmake-native bootstraps itself with its own do_configure and never reads EXTRA_OECMAKE, so setting that variable changes nothing and looks like a failed fix.",
+    "systemd-systemctl-native / PAM": "Meson finds /usr/lib/libpam.so on the host and enables PAM; compile then fails on security/pam_ext.h. Fix: EXTRA_OEMESON:append:pn-systemd-systemctl-native = \" -Dpam=disabled\""
+   },
+   "verified": "2026-07-28 on the w541, both reproduced and fixed, rebuilds verified after cleansstate.",
+   "upstream_status": "Both are upstream openembedded-core issues, worked around locally; reported to moWerk for co-maintainer discussion."
+  },
+  "IRON_RULE_local_conf_and_git": {
+   "PROHIBITION": "ANY temporary user of a build machine — this means EVERY Claude/agent session — MUST NOT edit build/conf/local.conf and MUST NOT run ANY git operation (commit/checkout/reset/pull/stash/etc.) inside the ~/Git/asteroid tree. These are moWerk's hand-tuned, prepare-build.sh-managed systems. In 2026-07 agent sessions on e15/w541/p14s edited local.conf WITHOUT backups: polluted them with transient comments, duplicated TMPDIR, and dropped SSTATE_DIR/DL_DIR so builds defaulted to the root SSD and spawned duplicate sstate-caches. NEVER AGAIN.",
+   "shared_cache_architecture": "ONE sstate-cache + downloads live on the w541 dedicated SSD at /mnt/storage/AsteroidOS/build/{sstate-cache,downloads}. w541 points SSTATE_DIR/DL_DIR there directly. p14s + e15 AUTOMOUNT it over sshfs and bind it into the podman build container as /host-sstate + /host-downloads (SSTATE_MIRRORS + DL_DIR). Agents must NEVER let SSTATE_DIR/DL_DIR default to ${TOPDIR} (that puts a cache on the root SSD) and must NEVER create a local duplicate cache.",
+   "how_to_make_changes": "Test changes ONLY via: devtool modify <package> -> scp/cp the edited files from the real local cloned working repo into the devtool workspace -> bitbake -> test on device -> devtool reset <package>. That is the entire sanctioned workflow. prepare-build.sh is the ONLY thing that manages the asteroid tree.",
+   "if_config_change_truly_needed": "Not permitted without moWerk's explicit per-change approval. If approved: cp local.conf to a timestamped .bak FIRST, make the minimal change, show the diff, add NO explanatory/transient comments to the file.",
+   "confidence": "HARD RULE set by moWerk 2026-07-30 after all 3 build servers were damaged by agents",
+   "icecc_mandate_2026_08_08": "Both build environments now MUST distribute over the 'asteroid' icecream cluster (32 slots; scheduler on e15 <icecc-scheduler>). w541 = bare metal, owned by the PORTING session. p14s = rootless podman image asteroidos-toolchain-icecc, owned by the PROJECT-HELPER session. No other session starts builds. p14s run command MUST include --network=host: the icecc client talks to the LOCAL iceccd on localhost:10245, and under rootless podman's default netns localhost is the container, so without the flag every compile silently falls back to local at ~4x the wall time with nothing in the log. VERIFY distribution on the first build after any change — a non-distributing build is invisible from inside bitbake (bb.note level only). Full detail, commands, traps and verification snippet: mo-infrastructure/build_environment.json -> icecc_distributed_compiling. The three local.conf directives per builder were added under moWerk's explicit approval 2026-08-08 with timestamped .bak files; this does NOT relax the prohibition above."
+  },
+  "on_watch_sysfs_reading_traps": {
+   "rule": "Reading sysfs on a watch is not uniformly safe or uniform. Time out EVERY read individually in a probe script, and resolve multi-value sources BY NAME.",
+   "blocking_node": "`/sys/power/wakeup_count` BLOCKS on read — documented kernel behaviour, it waits until wakeup events can be captured. It hung an entire capability probe on nemo: the script returned NO output at all, not even the fields already gathered, which read as an adb fault. Never read it from a sampler.",
+   "no_backlight_class": "These watches have NO `/sys/class/backlight`. The panel is exposed under the LED class as `/sys/class/leds/lcd-backlight/brightness`. Confirmed absent on nemo, empty on catfish (2026-07-31). Code written against the usual Linux path silently records an empty screen-state column forever.",
+   "battery_nodes_can_disagree": "catfish reports capacity=50 on `/sys/class/power_supply/battery` and capacity=100 on `nanohub_fuelgauge-0` AT THE SAME INSTANT. Read the gauge by NAME with a fixed preference order (nanohub_fuelgauge-* first), and RECORD which node was read alongside the value, so a trace can be re-read later if the preference turns out wrong. moWerk's read (a hypothesis, not settled): the non-50 value has always been the correct one, and catfish's MCU for the secondary LCD is likely the good source.",
+   "no_current_sensor_at_all": "nemo reports `current_now = 0` forever. A tidy log full of zeros means NO INSTRUMENT, not no drain — it must be named as such, or the slow capacity-delta method silently gets skipped.",
+   "verified": "2026-07-31 on nemo (<serial>) and catfish (<serial>)"
+  },
+  "watch_rtc_is_not_a_timing_source": {
+   "rule": "Never compute elapsed time on a watch from its wall clock. Use `/proc/uptime`, which no clock adjustment can move.",
+   "evidence": "Measured against the host at the same instant, 2026-07-31: catfish's clock was 130 DAYS behind (watch said 2026-03-23); nemo's was ~2 HOURS ahead. Both were recording perfectly well — this is the normal state of a device that has not synced, not a broken watch.",
+   "the_subtle_part": "A CONSTANT offset is harmless to deltas — epoch-based and uptime-based timing agree exactly on a steadily-wrong clock. So a test built on a large steady skew PASSES against an implementation using the wrong clock. The discriminating cases are a clock STEPPED mid-trace (invents elapsed time) and a clock FROZEN across suspend (hides it).",
+   "cross_check": "Within one boot, epoch delta and uptime delta should match. A divergence IS a clock adjustment, and is invisible if you only look at one of the two.",
+   "bonus": "A DROP in uptime between two samples is a REBOOT, so reboot detection falls out of any uptime-stamped log for free. Never compute elapsed time across that break.",
+   "report_dont_correct": "Measure skew against the host and REPORT it. A silently corrected timestamp looks trustworthy; an obviously wrong one does not."
+  },
+  "never_wake_the_watch_recording_pattern": {
+   "rule": "An on-watch recorder must add ZERO wakeups. On a watch the expensive part of a periodic job is the wakeup, not the reading — a probe that wakes the CPU to record the battery is draining the battery it measures.",
+   "primitive": "A systemd timer with `WakeSystem=false` (the default; state it explicitly, it is the whole design) firing a `Type=oneshot` service that appends one line and exits. Such a timer arms no RTC alarm — it fires only when the system is already awake, or on the next wake after the interval. Set `AccuracySec` deliberately LARGE (minutes) so systemd coalesces the firing with wakeups that were happening anyway. Nothing resident between samples: no loop, no wakelock, nothing to leak.",
+   "gaps_are_data": "The resulting samples are irregular and full of holes, which is the second half of the design. A gap means the watch genuinely slept through it — the standby behaviour you want to measure, and exactly what a regular sampler destroys by waking through it.",
+   "prior_art_attribution": "dodoradio got here first. asteroid-sensorlogd's README (2023) states the same principle almost verbatim: 'Sensorlogd will only record data when the CPU is already running. It does not schedule any wakeups... This is intended as a crude form of wear detection and as a power-saving measure.' The WEAR-DETECTION framing is the better one — if the watch wakes, someone is wearing it. Do NOT present this architecture as novel.",
+   "trigger_choice_matters": "sensorlogd triggers on MCE `display_status_ind` (display turns ON). That is an excellent proxy for 'a human is present' — and the WRONG trigger for POWER telemetry, because screen-on IS the expensive state and standby drain happens in the dark. A systemd timer fires on ANY wake, which is what power measurement needs.",
+   "measured": "catfish, 2026-07-31: 3 samples across 50 minutes undocked, one unbroken 49-minute gap, asleep_fraction 0.978. A 5-minute sampler would have produced ~10 samples there by waking the watch ten times.",
+   "the_precondition_that_gates_everything": "A probe must prove its OWN battery cost is in the noise before any number it produces is quotable — A/B on one watch, probe installed vs not, refereed by a real drain test. A null result (both arms inside the noise) is NOT a pass: it means the measurement lacked the sensitivity to detect the cost."
+  },
+  "usb_ssh_developer_mode_first_boot_no_dhcp": {
+   "rule": "A watch that cold-boots into developer_mode (USB-SSH) does NOT answer DHCP on its FIRST enumeration. One USB power cycle and it leases within seconds. Any host tooling that reaches watches over USB-SSH must cycle the port before concluding the watch is unreachable.",
+   "host_side_evidence": "NetworkManager retries every 45s and logs `dhcp4 (<iface>): state changed no lease` indefinitely; the interface carries only a link-local IPv6 address. Reproduced 2026-08-01 on two AsteroidOS watches (dory, sturgeon) on the w541 rig.",
+   "why_it_cascades": "No IPv4 on the host link means no route to 192.168.2.0/24, so the shared default 192.168.2.15 is unreachable and no SSH transport can be built. A tool then reports the watch as unreachable, which is CORRECT but looks like a tooling bug.",
+   "ruled_out_with_evidence": [
+    "cradle / link churn — a watch with ZERO re-enumerations over 3+ minutes still got no lease",
+    "several RNDIS links colliding — reproduced with the failing watch as the ONLY link on the bus",
+    "host NetworkManager config — the working and failing connection profiles were identical (ipv4.method:auto, autoconnect:yes)",
+    "per-watch IP allocation stealing the route — a stray brings its own route as soon as it leases (192.168.2.1/24 arrived <10s after a cycle)"
+   ],
+   "note": "The reason the watch does not answer until re-plugged is device-side and was not diagnosed here. Historically USB-SSH on the fixed 192.168.2.15 was the standard path and worked, so this is a transition-into-developer_mode issue rather than a property of developer_mode itself.",
+   "fix_pattern": "Mirror the adb-side recovery that already exists in asteroid-docking-bay: `not enumerating -> power-cycling once`. A stray that stays unreachable for a couple of probe retries should get exactly one power cycle, then self-heal."
+  },
+  "podman_image_build_invocation": {
+   "rule": "AsteroidOS images are built in a podman container (NOT docker) from ~/Git/asteroid. The w541 builds NATIVE bare metal instead. Recorded 2026-08-01 because it was missing and had to be re-derived mid-task.",
+   "command": "cd ~/Git/asteroid && podman run --rm -it --cpus=<N> -v \"$(pwd)\":/asteroid:z -v <SSTATE_MOUNT>:/host-sstate:ro -v <DOWNLOADS_MOUNT>:/host-downloads:rw --userns keep-id asteroidos-toolchain bash -c \"source ./prepare-build.sh update\"",
+   "then": "inside the same container pattern: `. ./prepare-build.sh <machine>` then `bitbake asteroid-image`. Several hours from a cold cache.",
+   "MOUNT_PATHS_DIFFER_PER_MACHINE": "Do NOT copy the mount paths from another host — they are not the same on e15 and p14s. Check the actual mounts on the machine you are on before building. On p14s (verified 2026-08-01) they are /mnt/auto/w541sstate and /mnt/auto/w541downloads. Note /mnt/w541sstate and /mnt/w541downloads also exist there as EMPTY stubs and are NOT the right paths.",
+   "cpu_limits": {
+    "p14s": "--cpus=14 (oom-hard, tolerates it)",
+    "e15": "limit to 10 — its desktop still crashes above 12 threads under full load",
+    "w541": "native bare metal, no container"
+   },
+   "sstate_and_downloads_come_from_the_w541": "Both are sshfs systemd automounts pointing at mo@mo-w541-eos:/mnt/storage/AsteroidOS/build/{sstate-cache,downloads} — sstate read-only, downloads read-write. The build machines share the w541's cache.",
+   "THE_SILENT_FAILURE": "If the automount units are not ACTIVE, the mount points are EMPTY DIRECTORIES rather than an error. The build then runs with no sstate mirror and no download cache — a cache-warm build silently becomes a cold multi-hour one, with nothing in the output saying so. ALWAYS verify the mounts are populated before starting: `ls /mnt/auto/w541sstate | wc -l` must be non-zero.",
+   "after_a_reboot": "The units are `enabled` but were found `inactive dead` after a p14s reboot (2026-08-01) — likely network-online ordering against wifi. Start them with `sudo systemctl start mnt-auto-w541sstate.automount mnt-auto-w541downloads.automount`. This needs interactive sudo (fingerprint), so an agent must ask moWerk to run it.",
+   "asteroid_repo_is_not_a_git_workspace": "~/Git/asteroid is OFF LIMITS for git operations. Source updates are managed solely by prepare-build.sh. Work happens in task-transient workspaces that are cleaned up afterwards, leaving a clean upstream build state — check for and clean another session's leftovers before starting.",
+   "machine_ownership": "These hosts are shared between several agent sessions. The w541 is usually owned by the a-d-b agent (it drives the watch rig and builds test images). Confirm ownership with moWerk before taking a build machine.",
+   "status": "FINAL STATE as of 2026-08-01, after weeks of consolidating and fixing the build servers. Only remaining work is hardening the e15.",
+   "three_machine_architecture": {
+    "w541": "THE cache owner. Builds NATIVE bare metal, no container. Holds the one canonical sstate-cache + downloads on its dedicated SSD at /mnt/storage/AsteroidOS/build/{sstate-cache,downloads} (23 GB sstate as of 2026-08-01). Also runs the watch rig and asteroid-docking-bay.",
+    "p14s": "podman + the asteroidos-toolchain image. --cpus=14 (oom-hard). Mounts the w541 cache over sshfs at /mnt/auto/w541sstate (ro) and /mnt/auto/w541downloads (rw), bound into the container as /host-sstate and /host-downloads.",
+    "e15": "podman, same shape, but its mount paths DIFFER — check them on the machine. NOT oom-proof yet: the desktop still crashes above 12 threads under full load, so cap at 10. By moWerk's decision (2026-08-01) e15 is OMITTED from fat builds that would benefit from >10 threads until it is hardened."
+   },
+   "ownership_model": "One agent session owns one build machine at a time, assigned by moWerk, because they share the w541's cache and tread on each other's devtool workspaces otherwise. Do not assume which machine is yours — ask. In 2026-08 two sessions each believed they owned the w541.",
+   "clean_state_contract": "Work in task-transient devtool workspaces and RESET THEM WHEN DONE, leaving a clean upstream build state for the next session. Check before starting: `devtool status` must say 'No recipes currently in your workspace'. Leftover workspaces silently contaminate the next session's build with unrelated patches — and if the leftover is in the component under investigation, it invalidates the experiment.",
+   "devtool_reset_preserves": "`devtool reset` does NOT delete the source tree: it moves it to build/workspace/attic/sources/<name>.<timestamp> and says so. Harmless, but the attic accumulates and is the caller's to clear."
+  },
+  "stock_rom_dump_and_restore": {
+   "scope": "Dumping a watch's stock (WearOS) ROM and restoring it later. Distinct from device_flashing (flashing AsteroidOS onto a watch) and device_recovery (getting INTO fastboot). Derived 2026-08-02 from the OPPO factory package for beluga/belugaxl plus moWerk's own full-disk dumps; see porting_guide entry beluga_belugaxl_stock_rom_restore for the device specifics.",
+   "why_offer_this_at_all": "moWerk's framing, and it is the right one: users ALREADY restore dumps unguided and fully brute-forced, then arrive in chat for help. The real baseline is not 'they abstain', it is 'they do it the worst possible way'. Withholding automation does not prevent the risky act. Do not reason against an imagined safe baseline.",
+   "authoritative_dump_sources": "Dumps a-d-b made itself AND dumps made manually with hosttools. a-d-b's flashing code is based on hosttools and continues to be. Third-party dumps (e.g. XDA) are usable too — but see verify_the_artifact_not_the_provenance.",
+   "dump_methods": {
+    "_renamed": "Was two_dump_methods until 2026-08-23, when a third method was recovered from the sol port. Three now.",
+    "ramdisk_clean": "Boot a debug ramdisk so userdata is never mounted, then dump. Two dumps are byte-identical, so corruption is provable. NOT universally available: many manufacturers block `fastboot boot`, or the boot image refuses for superficial reasons. Availability is a PER-WATCH fact that must be established hands-on.",
+    "runtime_unclean": "Put the watch in adb mode, place an AsteroidOS ext4 on userdata, reboot to bootloader, fastboot-boot the image so it comes up as a temporary install, then dump mmcblk0 from a root adb shell. Works broadly. The underlying disk is live, so a whole-disk checksum can never be reproduced.",
+    "initramfs_clean": "THE ONE THAT WORKS WHEN ramdisk_clean CANNOT. Flash your OWN init_boot to the unused slot and boot THAT, rather than asking the bootloader to `fastboot boot` an unsigned image non-persistently. AsteroidOS's initramfs never mounts userdata, so the disk is quiescent and two dumps come out byte-identical, which is the whole value of ramdisk_clean, but it needs no bootloader cooperation beyond a normal flash. PROVEN on sol (Pixel Watch 3) 2026-08-08/09: two whole-disk dumps of 31406948352 bytes, 3834 s and 3839 s, IDENTICAL whole-image sha256 be53f3ed3000171e9a151f2e7615829cb1991d7c77583e94ee4d8f4bdfdca061, 81/81 partitions matching INCLUDING userdata; `mount` showed zero mmcblk0 entries for the whole capture. Transport was a single `adb exec-out dd` pipeline in a-d-b's own stockrom.dump_command form, and disk size was read from /sys/class/block/mmcblk0/size BEFORE the copy. This matters most on exactly the watches where ramdisk_clean is unavailable: sol's debug ramdisk arrives via the misc BCB and was never ours to trigger, so without this method sol could only ever have had a runtime_unclean dump.",
+    "artefact_and_manifest": "sol's dump is on the w541 at /mnt/storage/sol-dumps/20260808/ (MANIFEST.txt, whole-image-sha256.txt, compare-report.txt, partitions.txt, per-device-state/ with 10 partitions, plus carved vendor_a.img and system_a.img). That MANIFEST follows this section's own dump_manifest_proposal and is the model to copy. Recovered 2026-08-23 by hunting for it: the method existed ONLY in that file, so neither the porting agent nor a-d-b could recall it. A dump whose method is not distilled here is a dump nobody can trust later, which is the manifest's own point: a filesystem timestamp is not a dump date, and the METHOD is what says which partitions may be trusted.",
+    "classify_lists_do_not_transfer": "sol's MANIFEST flags this at a-d-b directly: classify()'s FIRMWARE / SAFE_ERASE / PER_DEVICE lists came from the OPPO beluga/belugaxl rawprogram manifest (MSM8909W), so on sol (monaco/SW5100, GKI, A/B slots, dynamic super) 69 of 81 names return `unknown`, and it does NOT know sol's sensorstore is per-device state. UNKNOWN MEANS UNCLASSIFIED, NOT SAFE. A UI built on this column must never present `unknown` as erasable.",
+    "record_availability_per_watch": "'Which dump methods does this watch support?' belongs in the fleet registry keyed by serial, and it is THREE questions now: can it `fastboot boot` a debug ramdisk (ramdisk_clean), can we flash our own init_boot to a spare slot (initramfs_clean), or is only runtime_unclean left. Originally recorded as the debug-ramdisk question alone — discovered once by hand, durable across reflashes, and then the UI knows rather than asks."
+   },
+   "runtime_dumps_are_verifiable_PER_PARTITION": "PROVEN 2026-08-03 on nemo <serial> (LG Watch Urbane 2nd Ed). Two independent runtime dumps over SSH, 12 minutes apart, 3909091328 bytes each, both complete. Whole-image sha256 DIFFER (as the wiki Backup Guide states). Per partition: 33 of 34 IDENTICAL bit-for-bit; the only one differing is userdata, the partition the running system writes to. So a runtime dump's whole-image checksum is worthless but every quiescent partition is verifiable, and taking TWO dumps tells you exactly which partitions you may trust - without an unlocked bootloader or the debug ramdisk. Corroboration: six 0.5 MiB partitions (fsc, ssd, DDR, keystore, keymasterb, cmnlibb) shared one hash because they are zero-filled - independently confirming the erase-class taxonomy taken from the vendor manifest.",
+   "verify_the_artifact_not_the_provenance": "Provenance is unverifiable (anyone can rename a file); a dump is checkable. Use the same checks for a-d-b dumps, hosttools dumps and third-party images alike.",
+   "compatibility_check_two_gates": {
+    "gate_1_gpt": "Read the GPT out of the dump (LBA1 header, entries at LBA2) and off the live watch, and require an exact match on partition NAMES and LBAs. Cheap — needs only the first ~34 sectors — and a genuinely different device fails it immediately.",
+    "gate_1_is_NOT_sufficient": "PROVEN 2026-08-02: beluga and belugaxl have byte-identical GPTs (same 40 partitions, same LBAs, same 14,942,208-sector disk). Two real variants can share one layout, so the GPT gate alone must never be the safety rule. An earlier claim that a wrong-model image 'fails this instantly' was wrong and was corrected by the data.",
+    "gate_2_fingerprint": "The answer lives inside the system partition: ro.build.fingerprint, ro.product.device/name/model. Grep them straight out of the raw partition range (`grep -a` over the streamed region) — no mount needed. This is what actually establishes platform compatibility."
+   },
+   "partition_classes": {
+    "_note": "The manufacturer's own rawprogram XML makes this taxonomy obvious. Restore logic should be built on classes, not on a flat partition list.",
+    "firmware": "system, vendor, boot, recovery, cache, oem, splash, LOGO, modem, and the bootloader chain (sbl1, aboot, rpm, tz, cmnlib, keymaster). Identical across units of one model — safe to take from a third-party image of the same platform.",
+    "per_device_state": "persist, oppodycnvbk, oppostanvbk, modemst1/2, fsg, sec, devinfo. Sensor calibration, radio NV, device identity. NEVER share between watches, not even two identical units. Restoring a stranger's persist does not brick the watch — it silently replaces its calibration and identity, and nothing reports an error.",
+    "erase_do_not_restore": "The factory flow ERASES these rather than writing them (no filename in rawprogram0.xml): opporeserve3, pad, modemst1, modemst2, misc, fsc, ssd, DDR, fsg, sec, devinfo, keystore, config (plus last_grow on LUN2). A naive 'restore every partition from my dump' does the opposite and writes stale state back underneath an otherwise-factory system.",
+    "user_data": "userdata — see the empty_userdata rule, which is the single most important item here."
+   },
+   "THE_EMPTY_USERDATA_RULE": {
+    "rule": "A stock restore must give userdata a FRESH EMPTY filesystem. Never restore a captured, populated userdata.",
+    "evidence": "The factory userdata.img is a 307 KB sparse image expanding to ~4.5 GB: 22 chunks of which ~13 blocks are metadata and the rest DONT_CARE — raw mkfs output containing no files. moWerk's own dump's userdata is a populated 4.3 GB f2fs from a provisioned watch. Both are valid f2fs; only the contents differ.",
+    "symptom_when_violated": "Boots far enough to show the WearOS spinning balls, then never completes setup — indefinitely. moWerk waited overnight on several attempts; a SUCCESSFUL restore takes about 20 minutes (xuv, 2026-06, after reverting a watch to WearOS with this method). If it has not finished in well under an hour it is stuck, not slow.",
+    "mechanism": "INFERRED, not proven from the bytes: userdata on this WearOS vintage is encrypted with keys bound to keystore/keymaster, and the factory flow ERASES keystore, config, devinfo and misc. A populated encrypted userdata under erased or mismatched key material cannot be decrypted, so setup loops forever.",
+    "consequence": "This explains why the community's 6-command fastboot recipe works and hand-rolled full restores fail: the recipe flashes the factory's EMPTY userdata.img and never touches the erase class.",
+    "status": "PROVEN 2026-08-03 on beluga 22979c8c. The full recipe — firmware from the owner's own dump plus the factory's EMPTY userdata, bootloader chain and per-device state untouched — restored a watch to stock on the first attempt, after moWerk had failed repeatedly over weeks by writing a captured userdata back. See porting_guide beluga_belugaxl_stock_rom_restore PROVEN_RECIPE, and asteroid-docking-bay stockrom.py."
+   },
+   "dump_manifest_proposal": "Write a small manifest beside every dump: codename, serial, partition table, per-partition checksums, dump method (ramdisk|runtime), per-partition verified flag, date, tool version. Then a runtime dump still reports WHICH partitions were provably clean instead of that distinction being lost when the file leaves the machine. Worth agreeing the format with hosttools early — retrofitting two tools later is far more expensive.",
+   "a_dump_carries_its_own_partition_map": "Dissection needs no external table: everything required is in the dump's own GPT in the first 34 sectors. This is what MagneFire's dissect script (used by beroset's hosttools) works from.",
+   "silent_failure_seen_in_the_wild": "~/Git/asteroid-hosttools/original-sprat.img is 0 bytes — a backup that looks present in `ls` and contains nothing. A recorded size and checksum makes that instantly detectable; a directory listing never will.",
+   "backup_before_flashing": "The highest-value feature built on all of this: it makes flashing reversible, which lowers the stakes of every other operation offered to a novice.",
+   "attribution": "Mechanism derived by Claude under moWerk's direction, 2026-08-02, from files on disk (OPPO factory package + moWerk's beluga/belugaxl dumps). Community 6-command fastboot recipe: MagneWater on reddit (very likely MagneFire). 20-minute restore duration: xuv. Dissect script: MagneFire, used in beroset's hosttools.",
+   "back_up_per_device_state_first": "Before any write, pull the target's OWN per-device partitions (persist, oppodycnvbk, oppostanvbk, modemst1/2, fsg, sec, devinfo) with `adb exec-out dd`. ~60 MB, seconds, and it is the only data in the whole operation that no other dump can replace.",
+   "minimal_restore_of_a_permanent_asteroidos_install": "SCOPE: older watches only - NOT beluga-class, see DO_NOT_REDUCE_A_RECIPE_THAT_WORKS. A permanent AsteroidOS install writes exactly TWO partitions: `fastboot flash userdata <rootfs.ext4>` and `fastboot flash boot <boot.img>`. So undoing it should need only a stock boot plus a wiped userdata - and rather than sourcing an empty userdata image, flash stock boot then `adb reboot recovery` and factory-reset, letting the DEVICE format userdata with whatever filesystem it expects (recovery is untouched by an AsteroidOS install, so it is always available). moWerk's deduction 2026-08-03, supported by dump analysis - nemo's system/recovery/modem are all still stock while boot carries the AsteroidOS cmdline (selinux=0 SYSTEMD_CGROUP_ENABLE). INFERRED AND UNTESTED end to end. Do not apply it to a watch whose restore has a working recipe already.",
+   "DO_NOT_REDUCE_A_RECIPE_THAT_WORKS": {
+    "rule": "moWerk, 2026-08-03: the beluga restore sequence is CANON. Do not shorten it because some partitions look unmodified. He had tried many ways to reflash a beluga and failed every time; the sequence that finally worked may be a chain of DEVICE-SPECIFIC NECESSITIES whose reasons are not yet understood.",
+    "canon_sequence": "beluga: flash boot, system, vendor, recovery, cache from a stock full-disk dump, then the factory EMPTY userdata.img. Bootloader chain and per-device state untouched. Proven on 22979c8c 2026-08-03, first attempt.",
+    "why_this_rule_exists": "'That partition was never modified, so it need not be restored' is a deduction, not an observation. It is probably right for older watches and it is NOT established for beluga-class devices. A restore recipe is validated end to end or not at all; trimming it turns a proven procedure back into a hypothesis.",
+    "what_might_actually_be_going_on_UNPROVEN": [
+     "SELinux context: unclean writes may leave files outside their expected context, and a newer WearOS may then refuse them. Completely unproven - moWerk's hypothesis.",
+     "Key provisioning tied to the encrypted userdata, such that partitions beyond boot must be written for the device to re-provision cleanly. No evidence either way."
+    ],
+    "two_classes_of_watch": {
+     "older_watches": "moWerk's long-standing assumption that `system` must be flashed back appears to be FALSE for these. The minimal method (stock boot + wiped userdata) is likely sufficient - but still untested end to end.",
+     "newer_soc_wearos": "beluga-class. Use the canon sequence. Something further is going on here that is not yet identified."
+    }
+   },
+   "RESTORE_RECIPES_DO_NOT_TRANSFER_BETWEEN_WATCHES": "moWerk, 2026-08-03: 'please stop with bogus transfer of knowledge from the beluga case to any other watch. beluga is a total outlier in the fleet.' Each device gets its OWN recorded canon, derived from a sequence that actually worked on THAT device - never by reasoning from another one's. Claude applied beluga's partition set to nemo twice in one day and was wrong both times. See porting_guide beluga_belugaxl_stock_rom_restore and nemo_stock_rom_restore; note they differ in step order, in wipe method and in which partitions are written."
+  },
+  "build_dies_with_SIGTERM_check_earlyoom_FIRST": "DIAGNOSTIC, findable from the AsteroidOS side because that is where a build session looks. A Yocto task that dies with 'fatal error: Terminated signal terminated program cc1plus' plus \"{standard input}: Error: open CFI at the end of file; missing .cfi_endproc directive\" is almost certainly EARLYOOM, not a compiler, toolchain or icecc fault. The tells: SIGTERM not SIGKILL (the kernel OOM killer uses SIGKILL), and a truncated assembler stream because cc1plus died mid-output while piping to as. THE TRAP: earlyoom logs ONLY to its own systemd unit and leaves NO kernel OOM entries whatsoever, so `journalctl -k | grep -i oom` returns nothing and the cause looks like a ghost. CHECK: journalctl -u earlyoom --since '3 hours ago'. earlyoom's --prefer list starts with ^(cc1|cc1plus|ld|make|bitbake|...) so a compiler is the FIRST thing it reaches for. That is correct behaviour and protects the desktop and the filesystem; losing a build is far better than the July 2026 outcome where the kernel OOM killer fired mid-btrfs-transaction and corrupted the filesystem. Just retry the build, and check that --cgroup-parent=build.slice was passed. Confirmed 2026-08-08 on the p14s: killed a clang-native LLVM compile mid-build. Full detail: mo-infrastructure/build_environment.json -> icecc_distributed_compiling -> earlyoom_kills_look_like_icecc_faults."
+ },
+ "usb_host_side": {
+  "usb3_hub_shared_vbus_companion": {
+   "summary": "On a USB3-connected hub VBUS is shared between a USB2 port and its USB3 companion; cutting only one side leaves VBUS up.",
+   "sysfs_disable_reaches": "Only the sides linked by the kernel port 'peer' symlink. Root-connected hubs expose the peer at every level (both disable attrs reachable).",
+   "behind_a_dock_gotcha": "A hub cascaded behind a dock (rig Hub B: 1-9.1.3.x behind the Lenovo 17ef dock) exposes NO leaf 'peer' and NO USB3-side sysfs interface (3-5.1.3.3:1.0 absent). sysfs can cut only the USB2 side; the set falsely confirms while VBUS stays up. Symptoms: shelve only reboots the watch; live ports read off while physically powered (USB2 link down => not enumerated => reads disconnected).",
+   "fix": "uhubctl is companion-aware: one 'uhubctl -l <hub> -p <n> -a off' cuts BOTH sides on both direct and behind-dock hubs, AND updates the sysfs disable so the fast read stays correct. In a-d-b, gate the sysfs fast path on _sysfs_power_is_complete() (>=2 disable paths, or no USB3 companion) and fall through to uhubctl otherwise.",
+   "verified": "2026-07-24 on the rig through a-d-b uhubctl_set_power: Hub B port OFF => USB2 disable=1 AND USB3 '00a0 off'; ON brings both up."
+  },
+  "plug_a16_hubs_into_usb2_host_ports": {
+   "rule": "Plug the A16 (Realtek RTS5411 0bda:5411) smart hubs into USB 2.0 host ports, NOT USB 3.0 SuperSpeed ports.",
+   "why": "A USB3 host port makes the hub present a SuperSpeed companion (a 3-x bus twin) that SHARES the physical VBUS with the USB2 side. That companion is the root of every power problem: (1) cutting only the USB2-side sysfs disable leaves VBUS up on the companion (the shelve-doesn't-cut crisis); (2) behind a dock the companion has no sysfs at all, forcing slow uhubctl; (3) on replug the kernel can tear the USB2<->USB3 port 'peer' links and DROP the deep-leaf port-disable attrs entirely, so those ports cannot switch at all until a reboot/replug.",
+   "usb2_is_clean": "On a USB2 host port there is no companion: every hub port exposes a writable `disable` (via the udev rule), switching is instant sysfs, no uhubctl, no peer fragility. Watches are USB2 devices — USB3 buys nothing here.",
+   "detect": "A16 on USB3 => a sibling 3-x hub exists (e.g. 1-2 has companion 3-2) and deep-leaf ports may lack `disable`. A16 on USB2 => no 3-x twin, every leaf `disable` present + writable.",
+   "confirmed": "Rig, 2026-07-25: A16 #2 moved from a dock USB3 port to a laptop USB2 port (1-3) => no 3-3 companion, all disable attrs writable, instant sysfs on/off verified. A16 #1 left on USB3 (1-2, companion 3-2): after the replug its 1-2.3.3 deep-leaf `disable` attrs were GONE, uhubctl blocked over ssh by uaccess => those ports unswitchable.",
+   "uaccess_note": "The udev rule uses TAG+=uaccess, which grants USB device access only to the ACTIVE LOCAL session — uhubctl SET run over ssh fails 'permission problems'. sysfs `disable` (chmod g+w, group users) is the path that works headless; keep sysfs switchable (USB2 ports) rather than relying on uhubctl."
+  },
+  "dont_poll_empty_ports_discover_device_side": {
+   "rule": "Do NOT poll empty hub ports (reading their `disable` power attr). Discover watches from the DEVICE side — a watch appearing on ADB/SSH → resolve its sysfs port — and poll only OCCUPIED ports.",
+   "why": "Reading an empty port's `disable` attr is slow (hangs for seconds on a powered-down port) AND, on flaky A16/USB3-companion hubs, renegotiates the whole tree — which knocks the OTHER watches off the bus ('power/read an empty port → the hub drops everyone'). A background warmer doing this per empty port is both a latency source and actively destructive.",
+   "occupied_ports_are_cheap": "A present child device at `<hub>.<port>` already proves the port is powered — no `disable` read needed. So the status path can stay fast without touching empty ports at all.",
+   "onboarding_pattern": "Fill a rig with the interactive 'onboard sweep': map topology → power ALL sockets down → equip every socket (a dark port doesn't enumerate → no ADB flood) → run ONE port at a time: power on → detect ADB (else SSH/RNDIS 192.168.2.15 → allocate unique IP → adb-or-keep-ssh per prefer-ADB) → map + first data + registry.note → PPPS test → clean poweroff → cut VBUS → next. Never >1 port powered.",
+   "burst_crashes_adb": "Powering many ports on at once = ~24 watches enumerate in a burst that crashes the adb server (kill/start-server to recover). Always serialize; never bulk-power-on.",
+   "confirmed": "a-d-b onboard-discovery-rework branch, 2026-07-25."
+  },
+  "xhci_device_slot_exhaustion": {
+   "rule": "An Intel xHCI host controller has a hard device-slot limit (32 on 8-Series/Lynx Point, w541). EVERY enumerated device holds a slot - including every internal hub chip of a cascaded 'smart hub' and, on a USB3 host port, its SuperSpeed companion twin. When the bus is full the next device gets 'Not enough host controller resources for new device state' / \"can't set config #1, error -12\": it enumerates (address, descriptors, answers lsusb -v) but NO configuration is applied, so NO interfaces exist - invisible to adb, fastboot, and any interface-descriptor-based detection, while the kernel retries every ~67s (bus churn).",
+   "arithmetic": "One RSHTECH A16 16-port = FIVE cascaded Realtek RTS5411 4-port chips (root + 2 mid + 2 deep). On a USB3 host port each chip enumerates twice (USB2 + SS companion) = 10 slots per box with zero watches. Two A16s on USB3 + Lenovo dock + laptop peripherals = ~25 slots overhead, leaving ~7 for watches on a 32-slot controller.",
+   "symptoms_it_masquerades_as": "flaky 8th watch / 'brownout' with a healthy PSU; watches that 'never enumerate' during onboarding while actually live on the bus; adb server 'wedge' that a server restart doesn't fix; onboarding timeouts; reconnects that idle out.",
+   "diagnose": "journalctl -k | grep 'can.t set config' ; count slots: ls /sys/bus/usb/devices | grep -E '^[13]-[0-9.]+$' | wc -l (adjust bus numbers to the xHCI's buses); a starved device has no :1.0 interface dirs but answers lsusb -v.",
+   "mitigations": "free slots: plug hub uplinks into USB2-only host ports (halves hub slots - see plug_a16_hubs_into_usb2_host_ports, now doubly justified) or unbind idle SS companion trees; keep watches truly shelved so concurrent enumerated count stays low; ultimate: route hub ports to the EHCI controller via Intel XUSB2PR setpci (EHCI has no slot concept). VBUS-switching behaviour with the SS side unbound is UNVERIFIED - test before relying.",
+   "confirmed": "w541 rig, 2026-07-25 audit (docs/audits/2026-07-25-usb-brittleness-xhci-slots.md, asteroid-docking-bay): exactly 32 devices on buses 1+3, three watches live-but-unconfigured in an hours-long retry storm."
+  },
+  "ghost_nodes_after_a_move_adb_is_the_arbiter": {
+   "rule": "When a watch is moved between ports, its OLD sysfs node can survive if the hub never raises a disconnect — the same serial then appears at two paths at once. Use `adb devices -l` as the arbiter: where it names a path for a serial, that path is live BY CONSTRUCTION, and any other path claiming that serial is a leftover.",
+   "why_it_is_hard": "The two nodes are indistinguishable by inspection — sparrow's ghost and its real node both reported cfg=1, auth=1, speed=480 (2026-07-31). No property of the node itself gives it away, so an 'unconfigured device' check cannot catch it.",
+   "symptom": "The UI appears to swap two watches' identities on every refresh. It is not flapping: the backend is stable and ONE watch simply occupies TWO rows, which reads as swapping at a glance.",
+   "fallback": "When adb has no opinion (fastboot, or a dead adb server), keep BOTH nodes — guessing is worse than showing two. And name the ghost rather than hiding it: a port that lies about being empty is the opposite bug.",
+   "clears_on": "a hub power cycle"
+  },
+  "count_reenumerations_to_find_a_bad_cradle": {
+   "rule": "Count `add` events per hub port (udev, or `new high-speed USB device` in dmesg). A watch that docks once and stays put enumerates ONCE; every enumeration after that is the connection failing and recovering. Subtract that first one so a healthy port reads 0, and reset the tally on any power change so your own shelve/cycle does not inflate it.",
+   "why": "A failing cradle otherwise only ever produces an impression ('that one is flakey'). The kernel has been counting the whole time and nobody reads it. On the w541 rig this turned three separate cradle faults from hunches into a diagnosis in one pass.",
+   "signature_of_a_data_fault": "`device descriptor read/64, error -71` and `device not accepting address` mean the DATA lines are bad while VBUS is fine — exactly what a broken cradle lead or a bent connector produces. A watch charging happily with no adb is this.",
+   "the_invisible_case": "A cradle bad enough that enumeration NEVER completes produces no repeat successes at all — the host sees nothing while the watch shows adb popups on its own screen. Such a watch cannot be the enumeration spammer; only the watch knows it is being plugged in.",
+   "verified": "2026-07-31 — the rig's worst offender was a wren at 43 of the last 80 enumerations, found by hand-counting dmesg before this was automated"
+  },
+  "hub_vbus_capability_by_chip": {
+   "summary": "uhubctl marking a hub 'ppps' does NOT mean it cuts VBUS. Several chips report per-port power switching, transition state cleanly and exit 0, yet leave the 5V pin live so a connected watch keeps charging while only the DATA lines drop. The distinction is per silicon, established 2026-07-02 (raw log: investigation-logs/usb-hubs/hardware_findings.md; uhubctl issues #664/#665, both filed by moWerk and closed after real VBUS testing).",
+   "how_a_ppps_false_positive_happens": "Testing on an EMPTY port looks correct because there is no device whose charging you can observe. A real VBUS test needs a device connected and its charge indicator watched (a cable with a power LED is ideal). #664/#665 were both filed on empty-port evidence and retracted once a watch was actually charging through an 'off' port.",
+   "true_vbus_switching": {
+    "17ef:1014 / 17ef:1015": "Lenovo ThinkPad USB 3.0 Ultra Dock DK-1523 (root / sub-hub). CONFIRMED true per-port VBUS: narwhal's cable power-LED went dark instantly on `uhubctl -l 1-2 -p 2 -a off`. First fleet hub to do real VBUS switching. Watches enumerate on the USB2 companion bus (1-2 / 1-2.4).",
+    "RSHTECH A-16": "On the uhubctl compatible list as full per-port PPPS; the fleet's main VBUS-switching hub since. (See the separate xhci_device_slot_exhaustion entry for its host-side cost.)",
+    "known_good_reference": "Yepkit YKUSH (explicit per-port VBUS), Acroname USB 3.1 (gold standard). Ref: github.com/mvp/uhubctl#compatible-usb-hubs."
+   },
+   "data_line_disconnect_only": {
+    "05e3:0606": "ALCOR 'USB Hub 2.0', generic 4-port (x4 units on the old rig). Marked ppps, but VBUS stays live on 'off' — data lines drop (adb/enumeration go), watch keeps charging. lsusb misIDs it as D-Link DUB-H4 (the real DUB-H4 is 05e3:0608). Useful for adb ops (reboot/bootloader/flash), useless for charge management. uhubctl issue #664.",
+    "2109:2813": "VIA Labs root of the Manhattan MondoHub II 28-port. Group-switching port 2 of this root powers the whole 28-port cascade on/off, but it is data-line-only — VBUS stays live. Same chip ships in Aukey CB-C59 / AmazonBasics U3-7HUB. uhubctl issue #665.",
+    "214b:7250": "Huasheng sub-hubs cascaded under the MondoHub II VIA root (x6). GANGED — no per-port software switching at all; the front-panel rocker switches are mechanical only and cannot be driven via uhubctl."
+   },
+   "rule_of_thumb": "Before trusting a hub for charge/shelve management, VBUS-test it with a watch connected and its charge LED watched. 'ppps' + clean transitions + exit 0 prove the data-line switch, not the power switch. LEDs are truth; the register can be lying."
+  },
+  "a_physical_box_is_several_hub_entries": {
+   "summary": "One physical hub box registers as SEVERAL cascaded hub entries, and auto-naming gives them all the same name. Measured on the w541 rig 2026-08-09: the Sabrent is five entries (1-6 root with 0 ports, plus 1-6.1..1-6.4 with 4 ports each); the A16 #2 is five (1-3, 1-3.3, 1-3.3.3, 1-3.3.4, 1-3.4); the Lenovo dock is two (1-9, 1-9.4).",
+   "why_it_bites": "Anything that addresses 'a hub' by one location acts on one CHIP, not the box the operator sees. Hiding the Sabrent took five clicks, and the first looked like a no-op because the box ROOT carries no ports — only its own header row went away. Each later click removed exactly one 4-port chip, so rows vanished four at a time.",
+   "and_the_names_collide": "Because every chip in a box shares the auto-assigned name, any UI keyed on the display name collapses them. In a-d-b's row reconciler that silently dropped four of five headers. Key on the ADDRESS; a box name is not unique by construction.",
+   "rule": "Address a box by its root and everything cascaded under it — root = location.split('.')[0], then match root itself plus anything starting root+'.'. Set the whole box to one state rather than toggling per chip, or a box whose chips disagree stays mixed forever."
+  },
+  "vbus_and_data_are_separate_and_the_watch_is_the_witness": {
+   "summary": "A USB port carries power and data independently. A hub's per-port switch cuts VBUS; the D+/D- pair runs through the hub silicon and is not switched. A watch with a charged battery can therefore keep its gadget up with zero volts on the power pin and stay fully adb-reachable. Measured on the w541 A16 2026-08-16: sol reported /sys/class/power_supply/*/online = 0 on every supply while adb talked to it normally, with the port's physical button off and its LED dark.",
+   "why_it_bites": "The LED tells you POWER, never PRESENCE. A row that persists on a port whose LED is dark looks exactly like a stale kernel node, and cost an hour of chasing a phantom. It is also the reverse hazard: a watch left on a buttoned-off port is awake and draining, not shelved.",
+   "how_to_tell": "Ask the watch: /sys/class/power_supply/*/online is 1 while external power is present and 0 without it, independent of charge level (a Full battery still reads 1). No host-side register can answer this - on the A16 the hub reports the port as powered while the physical button has cut it.",
+   "important_scope": "This is NOT how a-d-b's software power-off behaves. Writing the port's `disable` attribute, or uhubctl's power-off, takes the PORT down - data path included - so the device disconnects. That is why two months of shelving watches produced no stray adb traffic. Only the hardware button (a switch in the VBUS rail, downstream of the hub silicon) separates the two.",
+   "consequence_for_drain_tests": "There is no standard USB request for 'cut power, keep data', so a drain test cannot poll battery over USB without also charging. The route that does work is Orbit: unplug and poll over WiFi/SSH.",
+   "confidence": "observation confirmed on hardware; the mechanism (hardware VBUS switch downstream of the hub) is inferred from that observation plus USB behaviour. The device-specific half is suspect - see sol_port_findings."
+  },
+  "adb_shell_expands_globs_on_the_HOST": {
+   "summary": "a-d-b's adb_shell builds `adb -s SER shell <cmd>` and runs it through a host shell. An unescaped `*` therefore expands against the HOST's filesystem before the watch ever sees it. Measured 2026-08-16: `cat /sys/class/power_supply/*/online` shipped the laptop's own supply names (AC, BAT0) to the watch, which answered 'No such file'.",
+   "why_it_bites": "Silent and misleading - the failure is indistinguishable from a watch that has no such nodes. Escape the glob (`\\*`) so the watch's shell expands it, or wrap the whole command in double quotes, which also suppresses host expansion (battery_and_screen does this and is correct as it stands).",
+   "confidence": "confirmed on hardware both ways"
+  },
+  "dumpsys_is_android_only": {
+   "summary": "AsteroidOS is plain Linux: no getprop, no dumpsys. a-d-b's adb_external_power asked `dumpsys battery` and so returned None on every AsteroidOS watch since it was written - it is the corroborating half of the PPPS verdict, and it verified nothing while appearing cautious. Fixed 2026-08-16 to read the kernel power_supply class first, keeping dumpsys for Wear OS reference units.",
+   "related": "Wear OS watches DO answer `getprop ro.product.device`, and it returns the same codename AsteroidOS uses, because the port takes the vendor's.",
+   "confidence": "confirmed - `dumpsys: command not found` on sturgeon"
+  },
+  "a_ppps_announcement_is_a_claim_not_a_verdict": {
+   "summary": "The `ppps` flag comes from uhubctl reading the hub descriptor: the hub ANNOUNCES per-port power switching. A hub can acknowledge a power command and flip its status bit with VBUS still hot, so the announcement is not proof. The verdict needs a watch on the port and the watch's own answer about external power.",
+   "layers": "a-d-b's test_port_power_switching has three: descriptor capability, a register gate that returns dumb unless both off and on confirm, and the watch-side corroboration (which was dead fleet-wide until 2026-08-16, see dumpsys_is_android_only).",
+   "rig_note": "On the w541 the A16 (Realtek RTS5411) announces and switches; the Sabrent (Genesys) does not announce and is treated as dumb; the Lenovo dock does not announce yet moWerk reports 4 switchable ports - announcement and reality diverge in BOTH directions.",
+   "confidence": "confirmed by reading the code and the rig's descriptors"
+  },
+  "ncm_watches_offer_adb_and_ssh_together": {
+   "summary": "Configfs-era watches (aurora 5.15.x, sol 5.15.148) run ffs.adb and ncm.0 in ONE composite gadget, so ADB and the network link are live simultaneously. The either/or model every USB-mode path in a-d-b was built on does not apply to them. Proven on the rig 2026-08-16 by the porting session: an ssh console open while a-d-b showed the watch adb-connected.",
+   "switching_is_destructive": "usb-moded's developer_mode.ini asks for `rndis`, and these kernels have no rndis configfs function (CONFIG_USB_CONFIGFS_RNDIS unset). usb-moded falls back to the charging-only 0afe composition: no adb, no net, no remote recovery, reboot required. a-d-b's switch ops and its stray peeler now refuse when a watch offers both.",
+   "detect_by_interface_class_never_idProduct": {
+    "ff/42/01": "adb (vendor-specific, host driver usbfs)",
+    "02/0d/00": "CDC-NCM control - the ssh-capable network function",
+    "0a/00/01": "CDC data belonging to the above",
+    "08": "mass storage only - the dead fallback composition",
+    "rule": "0afe is AMBIGUOUS: 0afe + ff/42/01 is a healthy initramfs-style composition; 0afe with ONLY mass storage is the dead fallback. A port power cycle cannot fix the dead one - the problem is the gadget composition, not the enumeration - so recommend a REBOOT rather than offering a cycle that silently does nothing. Never infer boot state from idProduct: it is a userspace artefact and can be stale while the system is healthy."
+   },
+   "reach_it_over_IPv6_LINK_LOCAL_no_addressing_at_all": {
+    "summary": "sshd.socket listens on [::]:22 and both ends have link-local with disable_ipv6=0. Measured end to end 2026-08-16: `ping -6 ff02::1%<iface>` answers, `ip -6 neigh` gives the peer, and TCP to [fe80::...%iface]:22 returns a real SSH-2.0-OpenSSH_9.9 banner - with NO address configured anywhere and NO root.",
+    "why_it_matters_for_a-d-b": "a-d-b runs UNPRIVILEGED (rootless port switching via udev rules). The originally proposed per-watch /30 scheme needed host-side `ip addr add`, i.e. a privileged helper, polkit rule or networkd file. Link-local removes that requirement entirely, and the scope-id (%iface) makes collisions structurally impossible - which also retires the multiple-interfaces-on-one-/24 ARP hazard.",
+    "connect_form": "ssh -6 ceres@fe80::...%iface   (NOTE the user is ceres, not root - every SSH path in a-d-b currently hardcodes root@)",
+    "the_address_is_NOT_stable": "The link-local is EUI-64 derived from the usb0 MAC, and the kernel generates that MAC randomly every time the ncm function is created - i.e. every boot. Do not cache the address; rediscover per boot with one multicast ping. Cache the hub:port -> iface mapping, which is stable. The porting session can pin dev_addr from the device DSN to make it deterministic per watch (asked for: it would give a-d-b a stable identity that is NOT the USB serial).",
+    "supersedes": "The static IPv4 defaults (aurora 192.168.42.2, sol 192.168.43.2) and the /30-pool plan in the porting notes' 8.4/8.5 - harmless as a fallback, needed by nothing."
+   },
+   "not_every_watch": "Legacy android_usb 4.9 watches (beluga, rubyfish/rover) have no configfs gadget and no NCM at all. Gate any ssh-over-USB affordance on being configfs-era, not on 'newer port'.",
+   "state_is_passively_observable": "NCM ACTIVE is readable from the descriptors (02/0d present, cdc_ncm bound) at zero cost and always fresh. Only 'capable but not active' needs the on-device probe (mkdir /config/usb_gadget/g1/functions/ncm.test then rmdir, non-destructive). Key any cache on hub:port plus something that changes on reflash (VERSION_ID / uname -r) - NOT on the USB serial, which aurora proved can be a kernel cmdline fragment for an entire session.",
+   "current_rig_state_2026_08_16": "aurora and sol have NCM enabled at RUNTIME via systemd-run, which does not survive a reboot. Until an image shipping the *-usb-network units is flashed, a-d-b will see 'capable but not active' after every boot on both. The units auto-enable in the built images, so a-d-b's job is detect-and-connect only - never enable the function or touch configfs.",
+   "source": "~/WatchPort/reports/20260816_adb_docking_bay_ncm_notes.md (porting session), sections 1-9",
+   "confidence": "measured end to end by the porting session and cross-checked against a-d-b's constraints"
+  },
+  "charging_can_latch_at_idle_current": {
+   "summary": "A docked watch can report status=Charging with a healthy VBUS while drawing only idle current and delivering NOTHING to its pack. Measured on aurora 2026-08-19: port offered 500 mA, watch drew 60 mA, battery/current_now was 0, and it lost ~1% every few hours over 2.6 days.",
+   "the_tell": "The PAIR of readings, not either alone: usb/current_now at tens of mA AND battery/current_now == 0. `status` lies here -- it said Charging throughout, and the second gauge (sw5100_bms) said 'Not charging' at the same moment.",
+   "what_it_rules_out": "Not supply: the port held 4.92 V while the watch drew a ninth of its allowance, and another watch on the same A16 box was simultaneously at 100%. A hub that cannot keep up shows the opposite -- device pulls its full limit, voltage sags.",
+   "recovery": "One port power cycle. VBUS off/on re-runs charger detection: 60 -> 199 mA on USB and 0 -> 60 mA into the pack, immediately, with no reboot and no reconnection. The lighter intervention is sufficient; a reboot was never needed.",
+   "consequences": "Charge targets never complete and drain tests are meaningless on a watch in this state, and it is invisible unless battery/current_now is read.",
+   "owner": "watch side (charger detection / HAL) - moWerk's read. a-d-b's part is detecting and surfacing it.",
+   "detail": "~/DockingBay/reports/20260819_aurora_stuck_charge_negotiation.md",
+   "confidence": "confirmed on hardware, with a same-hub control"
+  }
+ }
+}

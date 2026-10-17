@@ -1,0 +1,363 @@
+{
+  "wiki_reference": {
+
+    "build_system": {
+      "confidence": "wiki",
+      "source_pages": [
+        "https://wiki.asteroidos.org/index.php/Building_AsteroidOS",
+        "https://wiki.asteroidos.org/index.php/Building_the_SDK",
+        "https://wiki.asteroidos.org/index.php/Installing_the_SDK",
+        "https://wiki.asteroidos.org/index.php/OpenEmbedded"
+      ],
+
+      "full_build": {
+        "repo": "https://github.com/AsteroidOS/asteroid.git",
+        "setup_command": "source ./prepare-build.sh <codename>  — must be sourced, not executed",
+        "build_command": "bitbake asteroid-image",
+        "memory_requirement": "~2GB RAM per thread — limit with BB_NUMBER_THREADS=n or in build/conf/local.conf",
+        "disk_requirement": "potentially more than 100GB",
+        "output_path": "build/tmp/deploy/images/<codename>/",
+        "source_path": "src/ subdirectory after prepare-build.sh",
+        "update_sources": "source ./prepare-build.sh update",
+        "container_options": "Docker (requires sudo) or podman (rootless, no daemon). Both accept nearly identical commands.",
+        "container_image_name": "asteroidos-toolchain",
+        "tested_distros": "Ubuntu 19.04 (Docker), Fedora 41 (podman), Debian Sid"
+      },
+
+      "sdk": {
+        "two_versions": "ARM-based (for watches, target armv7vehf-neon) and qemux86 (for emulator). Both can coexist on the same machine.",
+        "prebuilt_download": "https://release.asteroidos.org/nightlies/sdk/oecore-meta-toolchain-qt5-x86_64-armv7vehf-neon-sturgeon-toolchain-nodistro.0.sh",
+        "build_command": "source ./prepare-build.sh sturgeon && bitbake meta-toolchain-qt5",
+        "install_path_default": "/usr/local/oecore-x86_64",
+        "environment_setup": "source /usr/local/oecore-x86_64/environment-setup-armv7vehf-neon-oe-linux-gnueabi",
+        "cmake_workflow": "source environment-setup → cmake -B build → cmake --build build",
+        "installer_script": "tmp/deploy/sdk/oecore-meta-toolchain-qt5-x86_64-armv7vehf-neon-sturgeon-toolchain-nodistro.0.sh"
+      },
+
+      "layers": {
+        "meta-asteroid": "core AsteroidOS recipes",
+        "meta-asteroid-community": "community app recipes",
+        "meta-smartwatch": "BSP layers per watch codename (meta-catfish, meta-sturgeon etc.)",
+        "meta-qt5": "Qt layer",
+        "priority": "7 for most AsteroidOS layers, 5 for general OE layers"
+      },
+
+      "devtool_workflow": {
+        "search": "devtool search <name>",
+        "modify": "devtool modify <recipe>  — extracts source to build/workspace/sources/<recipe>",
+        "build": "devtool build <recipe>",
+        "deploy": "devtool deploy-target <recipe> root@192.168.2.15",
+        "undeploy": "devtool undeploy-target <recipe> root@192.168.2.15",
+        "finish": "devtool finish <recipe> <layer>  — creates patch files and updates recipe in named layer",
+        "add": "devtool add <name> <local-dir>  — auto-creates recipe from local source directory",
+        "note": "devtool workspace does not delete source directory unless explicitly asked"
+      },
+
+      "ipk_manual_deploy": {
+        "build": "bitbake <recipe>",
+        "ipk_path": "tmp/deploy/ipk/armv7vehf-neon/",
+        "install_command": "opkg --force-reinstall install <package>.ipk",
+        "note": "four ipk variants generated: release, -dbg, -dev, -src. Use the shortest-named one."
+      },
+
+      "new_recipe_depends": {
+        "inherit": "cmake_qt5",
+        "DEPENDS": "qml-asteroid asteroid-generate-desktop-native qttools-native qtdeclarative-native",
+        "wiki_note": "wiki always includes asteroid-generate-desktop-native in DEPENDS for all new apps"
+      }
+    }
+    },
+
+    "app_development": {
+      "confidence": "wiki",
+      "source_pages": [
+        "https://wiki.asteroidos.org/index.php/Creating_an_Asteroid_app",
+        "https://wiki.asteroidos.org/index.php/Debugging_Applications",
+        "https://wiki.asteroidos.org/index.php/Creating_a_Watchface",
+        "https://wiki.asteroidos.org/index.php/Emulator"
+      ],
+
+      "build_methods": {
+        "recommended": "devtool + bitbake — only method that produces correct .ipk with dependencies",
+        "command_line": "fast to set up, doesn't reliably create .ipk or handle dependencies",
+        "qtcreator": "GUI-friendly but difficult to set up, no .ipk output",
+        "template_repo": "https://github.com/AsteroidOS/asteroid-helloworld"
+      },
+
+      "debugging": {
+        "qmltester": "asteroid-qmltester app on watch — load QML file directly for rapid iteration",
+        "vim_ssh_edit": "vim scp://ceres@192.168.2.15/Prototype.qml — edit QML directly on watch via SSH, test with qmltester",
+        "emulator_ssh_port": "ssh -p 2222 ceres@localhost",
+        "desktop_qml_tool": "qml tool (from Qt) runs QML on desktop — stub out watch-specific features",
+        "gdbserver": "mentioned in wiki but not yet documented",
+        "qml_profiling": "mentioned in wiki but not yet documented"
+      },
+
+      "watchface_creation": {
+        "tooling": "unofficial-watchfaces repo contains ./watchface script for test/clone/deploy",
+        "local_test": "qmlscene via qt-creator package — run watchface locally before deploying",
+        "clone_command": "./watchface clone analog-nort analog-my-watch-face",
+        "deploy_command": "./watchface deploy analog-my-watch-face  (or --boot to reboot after)",
+        "session_restart": "deploy script restarts session automatically so new fonts and images load",
+        "qml_location": "my-watch-face/usr/share/asteroid-launcher/watchfaces/my-watch-face.qml",
+        "image_location": "my-watch-face/usr/share/asteroid-launcher/watchface-img/",
+        "image_path_in_qml": "../watchface-img/imagename.suffix  (relative to .qml file)",
+        "image_naming": "prefix all asset filenames with watchface name to avoid cross-watchface conflict",
+        "font_location": "my-watch-face/usr/share/fonts/",
+        "font_licenses": "OFL/SIL, Apache, BSD, CC-BY only — must allow embedded redistribution",
+        "svg_minimum_size": "SVG width and height must be at least 800x800px — Qt only downscales correctly, not upscales",
+        "sizing_guideline": "base major sizing on watch width not height — Beluga is taller than wide so width is the smaller dimension",
+        "background_guideline": "do not fully hide the user-selected wallpaper",
+        "thumbnails": "square thumbnail on flatmesh background, round thumbnail on developer-chosen background"
+      },
+
+      "emulator": {
+        "target": "qemux86",
+        "nightly_builds": "https://release.asteroidos.org/nightlies/emulator/",
+        "rootfs_url": "https://release.asteroidos.org/nightlies/emulator/asteroid-image-emulator.rootfs.ext4",
+        "kernel_url": "https://release.asteroidos.org/nightlies/emulator/bzImage-emulator.bin",
+        "qemu_requirement": "must be built with Virgil3D support (virtio-vga-gl device)",
+        "run_command": "qemu-system-x86_64 -enable-kvm -kernel bzImage-emulator.bin -device virtio-vga-gl -net nic -net user,hostfwd=tcp::2222-:22 -drive format=raw,file=asteroid-image-emulator.rootfs.ext4 -m 512 -display sdl,gl=on -cpu qemu64,+ssse3,+sse4.1,+sse4.2 -usb -device usb-tablet --append 'verbose root=/dev/sda rw mem=512M video=800x800'",
+        "ssh_access": "ssh -p 2222 ceres@localhost",
+        "known_issues": [
+          "must run in Wayland session — known problems under X11",
+          "NVIDIA proprietary drivers cause black screen or video artifacts — use gtk display backend instead of sdl",
+          "click registration offset — resize window taller to improve accuracy",
+          "pre-2024-08-11 images: ceres not in input group — fix: usermod -a -G input ceres && systemctl restart user@1000"
+        ],
+        "demo_mode": "ssh -t -p2222 root@localhost mcetool -D on  (prevents screen blanking)"
+      }
+    },
+
+    "system_architecture": {
+      "confidence": "wiki",
+      "source_pages": [
+        "https://wiki.asteroidos.org/index.php/Graphic_Stack",
+        "https://wiki.asteroidos.org/index.php/Boot_Process",
+        "https://wiki.asteroidos.org/index.php/Technical_Details_of_AsteroidOS_Watches",
+        "https://wiki.asteroidos.org/index.php/Bluetooth",
+        "https://wiki.asteroidos.org/index.php/BLE_profiles"
+      ],
+
+      "graphic_stack": {
+        "compositor": "asteroid-launcher, based on Lipstick from Nemomobile, built with QML + qml-asteroid",
+        "qpa_compositor": "qt5-qpa-hwcomposer → libhardware.so (glibc) → libhybris → Android libhardware.so (bionic) → proprietary GPU blobs",
+        "app_rendering": "Qt5 QtWayland client QPA → wayland-egl protocol → asteroid-launcher (Wayland compositor)",
+        "not_qt_only": "any app supporting the Wayland protocol can run, not just Qt apps",
+        "libhybris_purpose": "bridges glibc and bionic to reuse Android GPU drivers — same approach as SailfishOS, NemoMobile, WebOS-Ports",
+        "note": "Graphic Stack page last edited June 2023 — may not reflect details of newer ports like hoki/rubyfish"
+      },
+
+      "boot_sequence": {
+        "chain": "bootloader (proprietary, fastboot protocol) → kernel (Android kernel + BT backport) → systemd",
+        "bootloader_access": "swipe top-left to bottom-right on screen at boot, or adb reboot bootloader",
+        "systemd_services": ["psplash (splashscreen)", "Android init (log daemon + servicemanager)", "DBus", "adbd (ADB daemon)", "MCE (power, inputs, screen)", "patchram (Broadcom BT firmware upload)", "bluetoothd (BlueZ5)", "asteroid-launcher (compositor + desktop)"],
+        "kernel_format": "boot.img = kernel (+ device tree) + initramdisk. Tools: mkbootimg/unmkbootimg",
+        "boot_partitions": "BOOT, RECOVERY, or fastboot boot via USB",
+        "debug_boot": "append debug-ramdisk to kernel params (via fastboot --cmdline) to enable adb in ramdisk before systemd",
+        "systemd_logs": "stored in tmpfs by default (lost on reboot). To persist: disable /var/volatile mount in /rfs/etc/fstab, mkdir /rfs/var/log/journal",
+        "journal_access_from_ramdisk": "chroot /rfs /bin/journalctl"
+      },
+
+      "watch_hardware": {
+        "chipsets": {
+          "msm8226": "older SoC — dory, bass, lenok, sturgeon, sparrow, anthias (kernel 3.10)",
+          "msm8909w": "mid-range SoC — catfish, sawfish, narwhal, skipjack, swift, beluga, triggerfish (kernel 3.18–4.9)",
+          "msm8937": "newer SoC — rubyfish, hoki (kernel 4.9–4.14)",
+          "mediatek": "pike (3.10), mooneye (4.4)"
+        },
+        "key_devices": {
+          "catfish": "TicWatch Pro 2018/20, msm8909w, kernel 3.18, Android pie",
+          "rubyfish": "TicWatch Pro 3, msm8937, kernel 4.9, Android pie",
+          "hoki": "Fossil Gen 6, msm8937, kernel 4.14, Android pie",
+          "beluga": "OPPO Watch, msm8909w, kernel 4.9, Android pie — RECTANGULAR screen (portrait, taller than wide)",
+          "sturgeon": "Huawei Watch, msm8226, kernel 3.10 — used as SDK build target codename"
+        },
+        "new_port_in_progress": "Google Pixel Watch 3 (seluna/solios), sw5100 chipset, kernel 5.15, Android 16 — listed but no support status"
+      },
+
+      "bluetooth": {
+        "sync_app": "AsteroidOSSync on Android — uses SweetBlue library (BLE central)",
+        "watch_daemon": "asteroid-btsyncd — runs as ceres user, DBus multiplexer between BlueZ5 and apps",
+        "bt_chip": "BCM20715 (Broadcom) on dory-family devices — needs proprietary firmware via patchram systemd service",
+        "qml_api": "org.asteroid.utils.BluetoothStatus — powered/connected status only",
+        "bluez_version": "BlueZ5 with BT 4.1 backport for MGMT API",
+        "ble_advertisement_uuid": "00000000-0000-0000-0000-00a57e401d05"
+      },
+
+      "ble_profiles": {
+        "battery": { "service_uuid": "0000180F-0000-1000-8000-00805f9b34fb", "characteristic": "00002a19 — read/notify, 0-100 byte" },
+        "media": { "service_uuid": "00007071-0000-0000-0000-00A57E401D05", "characteristics": "title(7001), album(7002), artist(7003), playing(7004), command(7005), volume(7006 0-100)" },
+        "notification": { "service_uuid": "00009071-0000-0000-0000-00A57E401D05", "format": "UTF-8 XML: <insert> with pn/id/an/ai/su/bo/vb children, or <removed> with id", "vibrate_values": ["strong", "normal", "ringtone", "none"] },
+        "screenshot": { "service_uuid": "00006071-0000-0000-0000-00A57E401D05", "format": "write any byte to request, content streamed as JPEG chunks" },
+        "time": { "service_uuid": "00005071-0000-0000-0000-00A57E401D05", "format": "6 bytes: year-1900, month(0-11), day, hour, minute, second" },
+        "weather": { "service_uuid": "00008071-0000-0000-0000-00A57E401D05", "format": "5 two-byte big-endian values per characteristic (today + 4 days forecast)", "temperature_unit": "Kelvin — 273 = 0°C", "weather_ids": "OWM weather condition IDs" },
+        "ancs": "Apple Notification Center Service also implemented (UUID: 7905F431-B5CE-4E99-A40F-4B1E122D00D0)"
+      }
+    },
+
+    "device_and_ops": {
+      "confidence": "wiki",
+      "source_pages": [
+        "https://wiki.asteroidos.org/index.php/SSH",
+        "https://wiki.asteroidos.org/index.php/Useful_Commands",
+        "https://wiki.asteroidos.org/index.php/Watchface_and_Package_Installation"
+      ],
+
+      "connectivity": {
+        "watch_ip_usb": "192.168.2.15 (RNDIS over USB)",
+        "ssh_as_ceres": "ssh ceres@192.168.2.15",
+        "ssh_as_root": "ssh root@192.168.2.15",
+        "rndis_fix": "sudo dhclient -v enp0s20f0u8  (if host doesn't auto-get IP)",
+        "known_hosts_reset": "ssh-keygen -R 192.168.2.15  (after reflash or multiple watches)"
+      },
+
+      "useful_commands": {
+        "restart_ui": "systemctl restart user@1000",
+        "reboot": "reboot",
+        "reboot_to_bootloader": "systemctl reboot --reboot-argument=bootloader",
+        "reboot_to_recovery": "systemctl reboot --reboot-argument=recovery",
+        "launch_app": "EGL_PLATFORM=wayland QT_QPA_PLATFORM=wayland QT_WAYLAND_DISABLE_WINDOWDECORATION=1 invoker --single-instance --type=qt5 /usr/lib/asteroid-appname  (run as ceres)",
+        "screenshot": "screenshottool /home/ceres/screenshot.jpg 3  (saves after 3 second delay)",
+        "notification": "notificationtool -o add --icon=ios-happy --application='App' --urgency=3 'Title' 'Body'",
+        "screen_demo_mode": "mcetool -D on  (keeps screen on — useful during dev)",
+        "screen_tap_unlock_off": "mcetool -M disabled",
+        "usb_mode_list": "usb_moded_util -m",
+        "usb_mode_set_adb": "usb_moded_util -s adb_mode",
+        "set_timezone": "ssh root@192.168.2.15 \"timedatectl set-timezone <continent>/<zone>\"",
+        "sync_time": "ssh root@192.168.2.15 \"date -s @`(date -u +\"%s\")`\""
+      },
+
+      "fastboot_entry": {
+        "adb_method": "adb reboot bootloader  (works when watch is running)",
+        "catfish_hoki_skipjack": "hold both buttons during boot until fastboot menu appears",
+        "dory_bass_lenok_sparrow_swift_wren": "swipe diagonally top-left to bottom-right during first seconds of boot",
+        "sawfish_sturgeon": "hold power button at bootlogo until vibration finishes, release, press again quickly",
+        "triggerfish_nemo": "hold lower button while powering on"
+      },
+
+      "package_install": {
+        "scp_to_watch": "scp packagename.ipk root@192.168.2.15:/home/root",
+        "install": "opkg install packagename.ipk",
+        "reinstall": "opkg install --force-reinstall packagename.ipk",
+        "force_depends": "opkg install --force-depends packagename.ipk  (use with caution — can cause instability)",
+        "nightly_packages": "https://release.asteroidos.org/nightlies/ipk/"
+      },
+
+      "watchface_install_paths": {
+        "qml": "/usr/share/asteroid-launcher/watchfaces/",
+        "images": "/usr/share/asteroid-launcher/watchfaces-img/",
+        "wallpapers": "/usr/share/asteroid-launcher/wallpapers/full/",
+        "fonts": "/usr/share/fonts/"
+      }
+    },
+
+    "porting": {
+      "confidence": "wiki",
+      "source_pages": [
+        "https://wiki.asteroidos.org/index.php/Porting_Guide",
+        "https://wiki.asteroidos.org/index.php/Boot_Process"
+      ],
+
+      "bsp_layer_structure": {
+        "components": ["OE recipes for HW adaptation", "vendor kernel recipe", "Android HAL binary blobs recipe", "middleware config files"],
+        "location": "src/meta-XXX-hybris/ in the AsteroidOS build tree",
+        "base_layer_by_android_version": {
+          "android_5": "base on meta-dory",
+          "android_6": "base on meta-swift",
+          "android_8": "base on meta-mooneye",
+          "android_9_pie": "base on meta-beluga or meta-triggerfish — check-config script not adapted for Pie, enable SELinux options manually"
+        },
+        "machine_conf": "conf/machine/XXX.conf — defines screen characteristics, hardware-specific packages",
+        "bbappend_uses": ["install hardware-specific packages", "apply kernel patches", "add build/runtime dependencies", "change compilation flags"],
+        "key_recipes": ["linux-XXX (kernel)", "android_XXX (blobs)"],
+        "new_watch_script": "meta-smartwatch/scripts/new-watch.sh — clones and renames base layer"
+      },
+
+      "kernel_recipe": {
+        "source": "Find vendor kernel at android.googlesource.com/kernel/msm/+refs — set SRC_URI + SRCREV",
+        "defconfig": "arch/arm/configs/XXX_defconfig — copy to meta-XXX/recipes-kernel/linux/linux-XXX/defconfig",
+        "config_check": "meta-asteroid/scripts/check-config -w — fixes config values for pre-Oreo kernels",
+        "boot_image_tools": "abootimg, mkboot, or mkbootimg — try all three if one fails silently (watch-specific, no apparent reason)",
+        "boot_image_format": "zImage + initramfs → boot.img. Inherit appropriate bbclass from meta-asteroid/classes/",
+        "bt_backport_patch": "Backport mainline 4.1 BT subsystem — required for MGMT API needed by BlueZ5/asteroid-btsyncd"
+      },
+
+      "android_system_dir": {
+        "purpose": "provides Android HALs used by libhybris — only a limited subset of Android libs needed",
+        "modified_source": "https://github.com/AsteroidOS/android_manifest — stripped/patched Android source tree",
+        "reference_build": "README-system-dir in meta-dory-hybris — document your own for reproducibility"
+      },
+
+      "porting_sequence": {
+        "order": ["boot", "USB/SSH", "display", "touch", "audio", "bluetooth", "sensors", "haptics", "WLAN"],
+        "display_debug": "EGL_PLATFORM=hwcomposer QT_QPA_PLATFORM=hwcomposer asteroid-launcher  (segfault on first run is expected — points to Android graphic HAL issue)",
+        "touch_debug": "modify asteroid-launcher start command to use correct evdevtouch /dev/input/eventN",
+        "sensors_test": "test_sensors command — 'Operation not permitted' means sensor daemon not started",
+        "haptics_test": "test_vibrator command",
+        "audio_test_play": "gst-launch-1.0 filesrc location=input.mp3 ! mpegaudioparse ! mpg123audiodec ! pulsesink",
+        "audio_test_record": "gst-launch-1.0 pulsesrc ! audioconvert ! wavenc ! filesink location=recording.wav",
+        "bt_low_power": "bluesleep/Nitrous kernel module needs patch to receive HCI events from kernel BT subsystem instead of /proc/lpm/"
+      },
+
+      "debugging": {
+        "log_sources": ["dmesg", "journalctl --no-pager", "/system/bin/logcat"],
+        "debug_packages": "append 'strace gdb asteroid-launcher-dbg' to asteroid-image class temporarily",
+        "irc_logs": "https://log.asteroidos.org/search",
+        "last_kmsg": "/proc/last_kmsg in WearOS — enable CONFIG_ANDROID_RAM_CONSOLE kernel option",
+        "ramdisk_debug": "append debug-ramdisk to kernel params via fastboot --cmdline to get adb shell in ramdisk before systemd"
+      },
+
+      "upstreaming": {
+        "steps": ["request meta-XXX-hybris repo creation on #Asteroid IRC", "send PR to meta-XXX-hybris", "send PR to AsteroidOS/asteroid to add machine to prepare-build.sh"],
+        "matrix_channel": "#Asteroid:matrix.org"
+      }
+    },
+  "documentation_decisions": [
+
+  {
+    "topic": "for_users_section_restructure_2026",
+    "type": "documentation_decision",
+    "summary": "The For Users section of the wiki was restructured from a flat 13-item list into six named groups: Before you install, Getting started, Using AsteroidOS, Connectivity and sync, Managing your watch, Reference. Porting Status was moved to For Porters. Three new pages were created: Interface Overview, Quick Settings Panel, Settings Reference. __NOTOC__ was added to the Documentation main page to suppress the auto-generated TOC that MediaWiki inserts before the first heading. Horizontal rule dividers (----) were added above each of the three top-level sections (For Users, For Developers, For Porters).",
+    "contributor": "@eLtMosen",
+    "approximate_date": "2026-04",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "wiki_page_inventory_for_users",
+    "type": "reference",
+    "summary": "Current For Users wiki page inventory as of 2026-04. New pages: Interface Overview (https://wiki.asteroidos.org/index.php/Interface_Overview), Quick Settings Panel (https://wiki.asteroidos.org/index.php/Quick_Settings_Panel), Settings Reference (https://wiki.asteroidos.org/index.php/Settings_Reference). Existing pages retained unchanged: Quick Start Guide, Applications, Synchronization Clients, SSH, IP Connection, Watchface and Package Installation, Updating AsteroidOS, Backup Guide, Useful Commands, Translating AsteroidOS, Licenses. Notifications and App Launcher were decided not to need dedicated pages — covered within Interface Overview.",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "applications_page_community_section_gaps",
+    "type": "known_gap",
+    "summary": "The Applications wiki page community section is missing three apps as of 2026-04: asteroid-meteormatch (moWerk), asteroid-beatfork (moWerk), and asteroid-hackwatch (recent addition by another contributor). asteroid-qmltester is listed as a community app but is a developer tool and arguably belongs in the For Developers section or needs a clear developer-only label.",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "qr_code_doc_entry_point_motivation",
+    "type": "strategic_decision",
+    "summary": "A QR code feature is planned for the watch UI to surface a documentation link so users who flashed from any source can find the user guide without having read any docs beforehand. This was the primary motivation for the For Users restructure — a clean, stable, well-structured entry point into the docs is required before the QR code feature ships.",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "finding_a_watch_page",
+    "type": "documentation_decision",
+    "summary": "New wiki page 'Finding a Watch' added to the Getting started group. Covers: secondhand market as primary acquisition channel for out-of-production hardware, preference for intact battery when buying used, visual identification via the Watches page on asteroidos.org, codename identification via fastboot bootloader (manual button combo from Useful Commands page, or following install instructions to the bootloader unlock step). Includes pointer to Matrix chat for flashing issues and link to Quick Start Guide as next step.",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "interface_overview_display_blanking",
+    "type": "documentation_decision",
+    "summary": "Display blanking section added to Interface Overview covering: automatic blanking after ~10s inactivity with AoD fallback; tap-to-extend doubles timeout per tap, 5 consecutive extensions causes indefinite stay-on requiring manual dismissal; some apps (Flashlight, games) block blanking automatically and must be explicitly closed. Manual sleep methods: power button (if available) forces immediate sleep; palm-to-sleep covers ambient light sensor triggering immediate sleep, always active on watches with a light sensor, cannot be disabled.",
+    "confidence": "confirmed"
+  },
+  {
+    "topic": "ssh_page_adb_section",
+    "type": "documentation_decision",
+    "summary": "ADB section appended to the SSH wiki page. Key facts documented: some watches have broken SSH and require ADB as the only shell access method; ADB provides equivalent root shell access to SSH; enabled/disabled in Settings > USB alongside SSH; adb shell gives root shell equivalent to ssh root@192.168.2.15; multiple connected watches listed via 'adb devices'; specific watch targeted with 'adb -s <port> shell'. Wiki listing display text changed to [[SSH|SSH and ADB Access]] while page name kept as SSH to preserve inbound links. Connectivity and sync group reordered: Synchronization Clients first, SSH and ADB Access second, IP Connection third.",
+    "confidence": "confirmed"
+  }
+  ]
+}
