@@ -35,3 +35,20 @@ private original; the other six files are byte-identical to it.
 
 Knowledge in here came from AsteroidOS maintainers and contributors, named at
 the point of use where it is theirs. Correct the record by opening an issue.
+
+## Licence
+
+Copyright (C) 2026 Timo Könnecke (moWerk) <mo@mowerk.net>
+
+`SPDX-License-Identifier: GPL-3.0-or-later`
+
+This corpus is free: you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See [LICENSE](LICENSE). It is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY, without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+The licence covers this compilation and its wording. Individual facts about
+AsteroidOS are not anyone's to license, and where a finding is a contributor's
+it is named at the point of use.
